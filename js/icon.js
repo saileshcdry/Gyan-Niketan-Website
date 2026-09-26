@@ -1,5 +1,7 @@
-/* icons.js — injects the shared SVG icon sprite into every page.
-   Must be loaded right after <body> so it runs before icons are used. */
+/* =========================================================
+   icons.js — injects the shared SVG icon sprite into every page.
+   Must be loaded right after <body> so it runs before icons are used.
+   ========================================================= */
 (function () {
   const SPRITE = `
 <svg class="sprite" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -19,6 +21,12 @@
   <symbol id="i-fb" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3z"/></symbol>
+  <symbol id="i-flag-np" viewBox="0 0 24 24">
+    <path d="M4 2 L4 22 L11 22 L7.5 16.5 L13 16.5 L9 11 L14 11 Z"
+          fill="#DC143C" stroke="#003893" stroke-width="0.9" stroke-linejoin="round"/>
+    <circle cx="7.5" cy="7" r="1.6" fill="#FFFFFF"/>
+    <circle cx="9.2" cy="14" r="1.3" fill="#FFFFFF"/>
+  </symbol>
 </svg>`;
   const tmp = document.createElement('div');
   tmp.innerHTML = SPRITE;
