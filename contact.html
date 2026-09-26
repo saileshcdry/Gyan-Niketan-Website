@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact Us | Gyan Niketan English Secondary School</title>
+<meta name="description" content="Contact Gyan Niketan English Secondary School — Badan Nagar, Parsa-32, Nepal. Call, email or send an enquiry.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body data-page="contact">
+
+<a class="skip-link" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false"><!-- sprite from index --></svg>
+
+<header class="site-header" id="site-header"><div id="header-mount"></div></header>
+<div class="nav-backdrop" id="nav-backdrop" hidden></div>
+
+<main id="main">
+
+  <section class="page-hero">
+    <div class="container page-hero-inner">
+      <nav class="breadcrumbs"><a href="index.html" data-i18n="page.home">Home</a><span>/</span><span data-i18n="cont.hero.tag">Contact</span></nav>
+      <span class="eyebrow" data-i18n="cont.hero.tag"></span>
+      <h1 data-i18n="cont.hero.title"></h1>
+      <p data-i18n="cont.hero.sub"></p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container contact-grid">
+
+      <!-- Info column -->
+      <div>
+        <h2 data-i18n="cont.info.title"></h2>
+
+        <div class="contact-card reveal">
+          <div class="contact-ic"><svg class="ic"><use href="#i-pin"/></svg></div>
+          <div><h4>Address</h4><p data-i18n="cont.info.address"></p></div>
+        </div>
+        <div class="contact-card reveal">
+          <div class="contact-ic"><svg class="ic"><use href="#i-phone"/></svg></div>
+          <div><h4>Phone</h4><a href="tel:+9779800000000" data-i18n="cont.info.phone"></a></div>
+        </div>
+        <div class="contact-card reveal">
+          <div class="contact-ic"><svg class="ic"><use href="#i-mail"/></svg></div>
+          <div><h4>Email</h4><a href="mailto:info@gyanniketan.edu.np" data-i18n="cont.info.email"></a></div>
+        </div>
+        <div class="contact-card reveal">
+          <div class="contact-ic"><svg class="ic"><use href="#i-clock"/></svg></div>
+          <div><h4>Hours</h4><p data-i18n="cont.info.hours"></p></div>
+        </div>
+        <div class="contact-card reveal">
+          <div class="contact-ic"><svg class="ic"><use href="#i-fb"/></svg></div>
+          <div><h4>Facebook</h4><a href="https://www.facebook.com/gyanniketan" target="_blank" rel="noopener" data-i18n="cont.info.fb"></a></div>
+        </div>
+      </div>
+
+      <!-- Form column -->
+      <div>
+        <h2 data-i18n="cont.form.title"></h2>
+
+        <form class="form-card" data-form="contact" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label for="c-name" data-i18n="cont.form.name"></label>
+              <input id="c-name" name="name" type="text" required>
+            </div>
+            <div class="field">
+              <label for="c-phone" data-i18n="cont.form.phone"></label>
+              <input id="c-phone" name="phone" type="tel" required>
+            </div>
+            <div class="field">
+              <label for="c-email" data-i18n="cont.form.email"></label>
+              <input id="c-email" name="email" type="email">
+            </div>
+            <div class="field">
+              <label for="c-grade" data-i18n="cont.form.grade"></label>
+              <select id="c-grade" name="grade">
+                <option value="">—</option>
+                <option>Nursery</option><option>LKG</option><option>UKG</option>
+                <option>Class 1</option><option>Class 2</option><option>Class 3</option>
+                <option>Class 4</option><option>Class 5</option><option>Class 6</option>
+                <option>Class 7</option><option>Class 8</option><option>Class 9</option><option>Class 10</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label for="c-msg" data-i18n="cont.form.message"></label>
+              <textarea id="c-msg" name="message" required></textarea>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-gold" style="margin-top:20px;" data-i18n="cont.form.submit"></button>
+          <p class="form-success" hidden></p>
+        </form>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <div class="section-head section-head-center">
+        <h2 data-i18n="cont.map.title"></h2>
+      </div>
+      <div class="map-embed" style="aspect-ratio: 16/9;">
+        <iframe title="Gyan Niketan location" src="https://www.google.com/maps?q=Parsa-32,Badan+Nagar,Nepal&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer"><div id="footer-mount"></div></footer>
+<button class="to-top" id="to-top" type="button" aria-label="Back to top">↑</button>
+
+<script src="js/layout.js"></script>
+<script src="js/data.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin | Gyan Niketan</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-body">
+
+<!-- LOGIN SCREEN -->
+<div id="login-view" class="admin-login admin-card">
+  <h1>Gyan Niketan — Admin</h1>
+  <p>Sign in with your GitHub account to manage notices and photos.</p>
+
+  <label for="repo">GitHub repository (owner/name)</label>
+  <input id="repo" type="text" placeholder="saleshcdry/Gyan-Niketan-Website" autocomplete="off">
+
+  <label for="token">Personal Access Token</label>
+  <input id="token" type="password" placeholder="github_pat_…" autocomplete="off">
+  <p class="help">
+    Create a <strong>fine-grained token</strong> at
+    <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>.
+    Set <em>Repository access</em> to <strong>Only this repository</strong>, and
+    <em>Permissions → Contents</em> to <strong>Read and write</strong>. Copy the token here.
+  </p>
+
+  <button type="button" id="login-btn" class="btn btn-gold">Sign in</button>
+  <div id="login-status" class="admin-status" hidden></div>
+
+  <ol>
+    <li>Go to <code>github.com/settings/tokens?type=beta</code></li>
+    <li>Click <em>Generate new token</em></li>
+    <li>Name it <code>gyan-niketan-admin</code>, expiry e.g. 90 days</li>
+    <li>Repository access → <em>Only select repositories</em> → pick your repo</li>
+    <li>Permissions → <em>Contents: Read and write</em></li>
+    <li>Generate, copy the token, paste it above</li>
+  </ol>
+  <p class="help">The token is stored only in this browser. Click <em>Sign out</em> when using a shared computer.</p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dash-view" hidden>
+  <div class="admin-topbar">
+    <div class="brand-mini">
+      <img src="GNlogo.jpg" alt="">
+      <strong>Gyan Niketan Admin</strong>
+    </div>
+    <div class="spacer"></div>
+    <a href="index.html" target="_blank">View site ↗</a>
+    <button type="button" id="signout-btn">Sign out</button>
+  </div>
+
+  <div class="admin-container">
+
+    <div class="admin-tabs">
+      <button type="button" data-tab="notices" class="is-active">Notices</button>
+      <button type="button" data-tab="gallery">Gallery</button>
+    </div>
+
+    <div id="status" class="admin-status" hidden></div>
+
+    <!-- NOTICES TAB -->
+    <div id="tab-notices">
+      <div class="admin-card">
+        <div class="admin-toolbar">
+          <h2 style="margin:0;">Notice Board</h2>
+          <button type="button" class="btn btn-gold" id="add-notice-btn">+ Add Notice</button>
+        </div>
+        <div id="notices-list" class="admin-list"></div>
+      </div>
+    </div>
+
+    <!-- GALLERY TAB -->
+    <div id="tab-gallery" hidden>
+      <div class="admin-card">
+        <div class="admin-toolbar">
+          <h2 style="margin:0;">Gallery</h2>
+          <button type="button" class="btn btn-gold" id="add-photo-btn">+ Upload Photo</button>
+        </div>
+        <div id="gallery-list" class="admin-gallery-grid"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- NOTICE MODAL -->
+<div class="admin-modal-backdrop" id="notice-modal" hidden>
+  <div class="admin-modal">
+    <h3 id="notice-modal-title">Add Notice</h3>
+    <form id="notice-form">
+      <input type="hidden" id="n-id">
+      <div class="field"><label>Date</label><input type="date" id="n-date" required></div>
+      <div class="field"><label>Category</label>
+        <select id="n-cat" required>
+          <option value="general">General</option>
+          <option value="exam">Examination</option>
+          <option value="holiday">Holiday</option>
+          <option value="event">Event</option>
+        </select>
+      </div>
+      <div class="field"><label>Title (English)</label><input type="text" id="n-title-en" required></div>
+      <div class="field"><label>Title (Nepali)</label><input type="text" id="n-title-np"></div>
+      <div class="field"><label>Message (English)</label><textarea id="n-ex-en" rows="3"></textarea></div>
+      <div class="field"><label>Message (Nepali)</label><textarea id="n-ex-np" rows="3"></textarea></div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn btn-outline" id="notice-cancel">Cancel</button>
+        <button type="submit" class="btn btn-gold">Save & Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- PHOTO MODAL -->
+<div class="admin-modal-backdrop" id="photo-modal" hidden>
+  <div class="admin-modal">
+    <h3 id="photo-modal-title">Upload Photo</h3>
+    <form id="photo-form">
+      <input type="hidden" id="p-id">
+      <input type="hidden" id="p-existing-src">
+      <div class="field"><label>Category</label>
+        <select id="p-cat" required>
+          <option value="campus">Campus</option>
+          <option value="classroom">Classroom</option>
+          <option value="lab">Lab</option>
+          <option value="sports">Sports</option>
+          <option value="event">Event</option>
+        </select>
+      </div>
+      <div class="field"><label>Title (English)</label><input type="text" id="p-title-en" required></div>
+      <div class="field"><label>Title (Nepali)</label><input type="text" id="p-title-np"></div>
+      <div class="field"><label>Photo <span id="p-file-hint">(JPG/PNG, max ~2 MB)</span></label>
+        <input type="file" id="p-file" accept="image/jpeg,image/png,image/webp">
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn btn-outline" id="photo-cancel">Cancel</button>
+        <button type="submit" class="btn btn-gold">Save & Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>
