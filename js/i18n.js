@@ -383,8 +383,20 @@ function applyLanguage(lang) {
     if (val) el.textContent = val;
   });
 
-  const label = document.getElementById('lang-label');
-  if (label) label.textContent = (lang === 'en') ? 'नेपाली' : 'English';
+  // Toggle which icon and label the language switcher shows
+  const label  = document.getElementById('lang-label');
+  const flag   = document.querySelector('.lang-toggle .lang-flag');
+  const globe  = document.querySelector('.lang-toggle .lang-globe');
+
+  if (lang === 'en') {
+    if (label) label.textContent = 'नेपाली';   // in English mode, offer Nepali
+    if (flag)  flag.hidden  = false;            // show Nepali flag
+    if (globe) globe.hidden = true;
+  } else {
+    if (label) label.textContent = 'English';   // in Nepali mode, offer English
+    if (flag)  flag.hidden  = true;
+    if (globe) globe.hidden = false;            // show globe
+  }
 
   document.dispatchEvent(new CustomEvent('languagechange', { detail: { lang: lang } }));
 }
