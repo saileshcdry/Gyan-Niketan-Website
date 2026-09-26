@@ -25,6 +25,9 @@
           '<a href="tel:+9779800000000" class="topbar-item"><svg class="ic"><use href="#i-phone"/></svg><span>+977-9800000000</span></a>' +
           '<a href="mailto:info@gyanniketan.edu.np" class="topbar-item"><svg class="ic"><use href="#i-mail"/></svg><span>info@gyanniketan.edu.np</span></a>' +
           '<span class="topbar-item topbar-hide"><svg class="ic"><use href="#i-pin"/></svg><span data-i18n="top.address">Badan Nagar, Parsa-32, Nepal</span></span>' +
+          '<a href="admin.html" class="topbar-item topbar-admin" title="Staff login">' +
+            '<svg class="ic"><use href="#i-shield"/></svg><span>Admin</span>' +
+          '</a>' +
         '</div>' +
       '</div>' +
       '<div class="container header-inner">' +
@@ -41,7 +44,8 @@
         '</nav>' +
         '<div class="header-actions">' +
           '<button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">' +
-            '<svg class="ic"><use href="#i-globe"/></svg>' +
+            '<svg class="ic lang-flag"><use href="#i-flag-np"/></svg>' +
+            '<svg class="ic lang-globe" hidden><use href="#i-globe"/></svg>' +
             '<span id="lang-label">नेपाली</span>' +
           '</button>' +
           '<a href="admissions.html" class="btn btn-gold header-cta" data-i18n="cta.apply">Apply for Admission</a>' +
@@ -71,6 +75,7 @@
             '<li><a href="admissions.html" data-i18n="nav.admissions">Admissions</a></li>' +
             '<li><a href="gallery.html" data-i18n="nav.gallery">Gallery</a></li>' +
             '<li><a href="notices.html" data-i18n="nav.notices">Notices</a></li>' +
+            '<li><a href="admin.html">Admin Login</a></li>' +
           '</ul>' +
         '</div>' +
         '<div class="footer-col">' +
