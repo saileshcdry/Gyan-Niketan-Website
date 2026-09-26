@@ -586,3 +586,30 @@ p  { margin: 0 0 1em; }
   .btn { padding: 11px 18px; font-size: .9rem; }
   .hero-actions .btn { flex: 1 1 100%; }
 }
+/* Admin link in the top bar */
+.topbar-admin {
+  margin-left: auto;
+  color: var(--gold);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(244,180,0,.4);
+  transition: background .15s ease, color .15s ease;
+}
+.topbar-admin:hover {
+  background: rgba(244,180,0,.15);
+  color: var(--gold);
+}
+.topbar-admin .ic { color: var(--gold); }
+
+/* On mobile, hide the label but keep the icon */
+@media (max-width: 640px) {
+  .topbar-admin span:not(.ic) { display: none; }
+  .topbar-admin { padding: 6px 8px; }
+}
+/* Language toggle icon sizing */
+.lang-toggle .ic { width: 1.15em; height: 1.15em; }
+.lang-toggle .lang-flag { border-radius: 3px; }
+
+/* Keep hidden state from being overridden by the inline SVG width */
+.lang-toggle [hidden] { display: none !important; }
