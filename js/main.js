@@ -191,18 +191,10 @@ document.addEventListener('DOMContentLoaded', function () {
         '</div>';
     }
 
-    /* Repeating diagonal watermark using the school logo.
-       Inline SVG pattern with an <image> element so it prints
-       even if "Background graphics" is unchecked. */
+    /* Single centered logo watermark.
+       A real <img> so it prints even if "Background graphics" is off. */
     var watermark =
-      '<svg class="letterhead-watermark" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-        '<defs>' +
-          '<pattern id="gn-wm-logo" x="0" y="0" width="200" height="160" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">' +
-            '<image href="GNlogo.jpg" x="0" y="0" width="160" height="160" opacity="0.07" preserveAspectRatio="xMidYMid meet"/>' +
-          '</pattern>' +
-        '</defs>' +
-        '<rect width="100%" height="100%" fill="url(#gn-wm-logo)"/>' +
-      '</svg>';
+      '<img class="letterhead-watermark" src="GNlogo.jpg" alt="" aria-hidden="true">';
 
     return '' +
       '<div class="letterhead letterhead-printable">' +
