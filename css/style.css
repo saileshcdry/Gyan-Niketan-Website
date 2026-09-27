@@ -1431,11 +1431,31 @@ p  { margin: 0 0 1em; }
 }
 
 .letterhead {
+  position: relative;
   background: var(--white);
   color: #111;
   font-family: Georgia, 'Times New Roman', serif;
   max-width: 100%;
 }
+
+/* Watermark — inline SVG behind the letterhead content.
+   Inline SVG (not a CSS background) so it prints even if the
+   browser's "Background graphics" option is unchecked. */
+.letterhead-watermark {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+/* Keep letterhead content above the watermark */
+.letterhead > :not(.letterhead-watermark) {
+  position: relative;
+  z-index: 1;
+}
+
 .letterhead-head {
   display: grid;
   grid-template-columns: 88px 1fr 88px;
@@ -1946,25 +1966,50 @@ p  { margin: 0 0 1em; }
    31. PRINT
    ========================================================= */
 @media print {
-  .site-header,
-  .site-footer,
-  .to-top,
-  .nav-backdrop { display: none !important; }
-  body { color: #000; background: #fff; }
-  a { color: #000; text-decoration: underline; }
+  /* Default A4 portrait. JS overrides this with a runtime <style>
+     when the user toggles to landscape in the notice modal. */
+  @page { size: A4 portrait; margin: 15mm 12mm; }
 
-  body * { visibility: hidden !important; }
-  .letterhead-printable,
-  .letterhead-printable * { visibility: visible !important; }
-  .letterhead-printable {
-    position: absolute !important;
-    left: 0; top: 0;
-    width: 100%;
-    padding: 20px 30px;
-    box-shadow: none;
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  .gn-modal-actions,
-  .gn-modal-close { display: none !important; }
-  .gn-modal-body { box-shadow: none; max-height: none; }
-  @page { margin: 18mm 16mm; }
+
+  /* Only applies when a notice modal is open (class added by main.js) */
+  html.gn-printing-notice body > *:not(#gn-notice-modal) {
+    display: none !important;
+  }
+
+  html.gn-printing-notice #gn-notice-modal {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  html.gn-printing-notice .gn-modal-backdrop { display: none !important; }
+  html.gn-printing-notice .gn-modal-body {
+    position: static !important;
+    max-width: none !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    animation: none !important;
+    background: transparent !important;
+  }
+  html.gn-printing-notice .gn-modal-actions,
+  html.gn-printing-notice .gn-modal-close { display: none !important; }
+  html.gn-printing-notice .gn-modal-content {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  html.gn-printing-notice .letterhead-printable {
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  a { color: #000; text-decoration: underline; }
 }
