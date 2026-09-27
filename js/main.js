@@ -140,9 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
       ? '<span class="notice-badge"><svg class="ic"><use href="#i-calendar"/></svg>' +
         ((lang === 'np') ? 'तालिका' : 'Schedule') + '</span>'
       : '';
-    /* Whitelist category so it cannot inject into the class attribute. */
     var safeCat = (['exam','holiday','event','general'].indexOf(n.cat) >= 0) ? n.cat : 'general';
-    /* Escape every value that lands in markup. */
     var safeId    = escapeHtml(n.id);
     var safeTitle = escapeHtml(title);
     var safeExc   = escapeHtml(excerpt);
@@ -193,8 +191,21 @@ document.addEventListener('DOMContentLoaded', function () {
         '</div>';
     }
 
+    /* Repeating diagonal watermark — inline SVG so it prints even if
+       "Background graphics" is unchecked in the browser print dialog. */
+    var watermark =
+      '<svg class="letterhead-watermark" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<defs>' +
+          '<pattern id="gn-wm" x="0" y="0" width="260" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">' +
+            '<text x="130" y="90" font-family="Poppins, Inter, sans-serif" font-size="22" font-weight="700" fill="#0A2342" fill-opacity="0.08" text-anchor="middle" dominant-baseline="middle">GYAN NIKETAN</text>' +
+          '</pattern>' +
+        '</defs>' +
+        '<rect width="100%" height="100%" fill="url(#gn-wm)"/>' +
+      '</svg>';
+
     return '' +
       '<div class="letterhead letterhead-printable">' +
+        watermark +
         '<header class="letterhead-head">' +
           '<img class="letterhead-logo" src="GNlogo.jpg" alt="School logo">' +
           '<div class="letterhead-school">' +
@@ -249,6 +260,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  /* ---------- Print orientation ---------- */
+  function applyPrintOrientation(orientation) {
+    var styleEl = document.getElementById('gn-print-orientation-style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'gn-print-orientation-style';
+      document.head.appendChild(styleEl);
+    }
+    var size   = (orientation === 'landscape') ? 'A4 landscape' : 'A4 portrait';
+    var margin = (orientation === 'landscape') ? '12mm 15mm'    : '15mm 12mm';
+    styleEl.textContent =
+      '@media print { @page { size: ' + size + '; margin: ' + margin + '; } }';
+  }
+
+  function setOrientation(orientation) {
+    var modal = document.getElementById('gn-notice-modal');
+    var btn = modal && modal.querySelector('#gn-orientation-btn');
+    if (btn) {
+      btn.dataset.orientation = orientation;
+      btn.textContent = (orientation === 'portrait') ? 'Landscape' : 'Portrait';
+      btn.setAttribute('aria-pressed', orientation === 'landscape' ? 'true' : 'false');
+    }
+    applyPrintOrientation(orientation);
+  }
+
   /* ---------- Notice modal ---------- */
   function ensureNoticeModal() {
     var existing = document.getElementById('gn-notice-modal');
@@ -264,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function () {
           '<svg class="ic"><use href="#i-close"/></svg>' +
         '</button>' +
         '<div class="gn-modal-actions">' +
+          '<button type="button" id="gn-orientation-btn" data-orientation="portrait" aria-pressed="false">Landscape</button>' +
           '<button type="button" id="gn-print-btn">' +
             '<svg class="ic"><use href="#i-print"/></svg><span id="gn-print-label">Print</span>' +
           '</button>' +
@@ -276,6 +313,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (e.target.closest('[data-close="1"]')) closeNoticeModal();
     });
     div.querySelector('#gn-print-btn').addEventListener('click', function () { window.print(); });
+    div.querySelector('#gn-orientation-btn').addEventListener('click', function () {
+      var next = (this.dataset.orientation === 'landscape') ? 'portrait' : 'landscape';
+      setOrientation(next);
+    });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !div.hidden) closeNoticeModal();
     });
@@ -290,6 +331,8 @@ document.addEventListener('DOMContentLoaded', function () {
     content.innerHTML = letterheadHTML(notice, currentLang);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
+    document.documentElement.classList.add('gn-printing-notice');
+    setOrientation('portrait');
     var body = modal.querySelector('.gn-modal-content');
     if (body) body.scrollTop = 0;
   }
@@ -298,6 +341,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!modal) return;
     modal.hidden = true;
     document.body.style.overflow = '';
+    document.documentElement.classList.remove('gn-printing-notice');
+    var styleEl = document.getElementById('gn-print-orientation-style');
+    if (styleEl) styleEl.remove();
   }
 
   /* ---------- Gallery lightbox ---------- */
