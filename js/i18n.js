@@ -128,6 +128,7 @@ const TRANSLATIONS = {
     'about.faculty.f4.n': 'Mrs. Laxmi Devi Tharu',   'about.faculty.f4.r': 'Head of Primary Section',
     'about.faculty.f5.n': 'Mr. Arjun Kumar Mandal',  'about.faculty.f5.r': 'Head of Mathematics',
     'about.faculty.f6.n': 'Mrs. Rita Chaudhary',     'about.faculty.f6.r': 'Head of English',
+    'about.faculty.ladies.caption': 'Our dedicated ladies teachers team',
 
     /* Academics page */
     'acad.hero.tag': 'Academics',
@@ -384,6 +385,7 @@ const TRANSLATIONS = {
     'about.faculty.f4.n': 'श्रीमती लक्ष्मी देवी थारू',      'about.faculty.f4.r': 'प्राथमिक तह प्रमुख',
     'about.faculty.f5.n': 'श्री अर्जुन कुमार मण्डल',       'about.faculty.f5.r': 'गणित विभाग प्रमुख',
     'about.faculty.f6.n': 'श्रीमती रीता चौधरी',            'about.faculty.f6.r': 'अङ्ग्रेजी विभाग प्रमुख',
+    'about.faculty.ladies.caption': 'हाम्रो समर्पित महिला शिक्षक टोली',
 
     'acad.hero.tag': 'शैक्षिक',
     'acad.hero.title': 'बलियो जग बनाउने पाठ्यक्रम',
