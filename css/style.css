@@ -1438,14 +1438,21 @@ p  { margin: 0 0 1em; }
   max-width: 100%;
 }
 
-/* Watermark — inline SVG behind the letterhead content.
-   Inline SVG (not a CSS background) so it prints even if the
+/* Single centered logo watermark.
+   A real <img> (not a CSS background) so it prints even if the
    browser's "Background graphics" option is unchecked. */
 .letterhead-watermark {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60%;
+  max-width: 500px;
+  height: auto;
+  opacity: 0.07;
   pointer-events: none;
   z-index: 0;
+  user-select: none;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
