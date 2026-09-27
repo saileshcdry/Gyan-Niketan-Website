@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notices | Gyan Niketan English Secondary School</title>
+<meta name="description" content="Official notices, exam routines, holidays and events from Gyan Niketan English Secondary School.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body data-page="notices">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="site-header"><div id="header-mount"></div></header>
+<div class="nav-backdrop" id="nav-backdrop" hidden></div>
+
+<main id="main">
+
+  <section class="page-hero">
+    <div class="container page-hero-inner">
+      <nav class="breadcrumbs"><a href="index.html" data-i18n="page.home">Home</a><span>/</span><span data-i18n="noti.hero.tag">Notices</span></nav>
+      <span class="eyebrow" data-i18n="noti.hero.tag"></span>
+      <h1 data-i18n="noti.hero.title"></h1>
+      <p data-i18n="noti.hero.sub"></p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="notices-toolbar">
+        <div class="notice-search">
+          <input id="notices-search" type="search" data-i18n-attr="placeholder:noti.search">
+        </div>
+        <div class="notice-filters">
+          <button type="button" class="is-active" data-notice-filter="all"     data-i18n="noti.filter.all"></button>
+          <button type="button"                     data-notice-filter="exam"    data-i18n="noti.filter.exam"></button>
+          <button type="button"                     data-notice-filter="holiday" data-i18n="noti.filter.holiday"></button>
+          <button type="button"                     data-notice-filter="event"   data-i18n="noti.filter.event"></button>
+          <button type="button"                     data-notice-filter="general" data-i18n="noti.filter.general"></button>
+        </div>
+      </div>
+      <div class="notice-list" id="notices-grid"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer"><div id="footer-mount"></div></footer>
+<button class="to-top" id="to-top" type="button" aria-label="Back to top">↑</button>
+
+<script src="js/layout.js"></script>
+<script src="js/data.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
