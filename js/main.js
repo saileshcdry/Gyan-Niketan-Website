@@ -191,8 +191,6 @@ document.addEventListener('DOMContentLoaded', function () {
         '</div>';
     }
 
-    /* Single centered logo watermark.
-       A real <img> so it prints even if "Background graphics" is off. */
     var watermark =
       '<img class="letterhead-watermark" src="GNlogo.jpg" alt="" aria-hidden="true">';
 
@@ -253,29 +251,78 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* ---------- Print orientation ---------- */
-  function applyPrintOrientation(orientation) {
+  /* =========================================================
+     PRINT SETUP — paper size (auto A5/A4) + orientation
+     ========================================================= */
+  var paperSizeMode   = 'auto';      // 'auto' | 'A5' | 'A4'
+  var paperOrientation = 'portrait'; // 'portrait' | 'landscape'
+  var detectedSize    = 'A4';        // resolved when mode is 'auto'
+
+  /* Detect paper size by measuring the rendered letterhead.
+     Short notices → A5; larger ones → A4.
+     Threshold is empirical: modal letterhead is ~768px wide,
+     so ≤600px tall fits comfortably on A5. */
+  function detectAndSetPaperSize() {
+    var letterhead = document.querySelector('#gn-notice-content .letterhead');
+    if (!letterhead) return;
+    var h = letterhead.getBoundingClientRect().height;
+    detectedSize = (h <= 600) ? 'A5' : 'A4';
+    applyPageSettings();
+    updateSizeButton();
+  }
+
+  /* Inject the @page rule reflecting current size + orientation. */
+  function applyPageSettings() {
+    var size = (paperSizeMode === 'auto') ? detectedSize : paperSizeMode;
+    var orientation = paperOrientation;
+
+    var margin;
+    if (size === 'A5') {
+      margin = (orientation === 'landscape') ? '8mm 10mm' : '10mm 12mm';
+    } else {
+      margin = (orientation === 'landscape') ? '12mm 15mm' : '15mm 12mm';
+    }
+
     var styleEl = document.getElementById('gn-print-orientation-style');
     if (!styleEl) {
       styleEl = document.createElement('style');
       styleEl.id = 'gn-print-orientation-style';
       document.head.appendChild(styleEl);
     }
-    var size   = (orientation === 'landscape') ? 'A4 landscape' : 'A4 portrait';
-    var margin = (orientation === 'landscape') ? '12mm 15mm'    : '15mm 12mm';
     styleEl.textContent =
-      '@media print { @page { size: ' + size + '; margin: ' + margin + '; } }';
+      '@media print { @page { size: ' + size + ' ' + orientation + '; margin: ' + margin + '; } }';
   }
 
-  function setOrientation(orientation) {
+  function updateSizeButton() {
+    var modal = document.getElementById('gn-notice-modal');
+    var btn = modal && modal.querySelector('#gn-size-btn');
+    if (!btn) return;
+    if (paperSizeMode === 'auto') {
+      btn.textContent = 'Paper: Auto (' + detectedSize + ')';
+      btn.setAttribute('aria-pressed', 'false');
+    } else {
+      btn.textContent = 'Paper: ' + paperSizeMode;
+      btn.setAttribute('aria-pressed', 'true');
+    }
+  }
+
+  function cyclePaperSize() {
+    if (paperSizeMode === 'auto') paperSizeMode = 'A5';
+    else if (paperSizeMode === 'A5') paperSizeMode = 'A4';
+    else paperSizeMode = 'auto';
+    applyPageSettings();
+    updateSizeButton();
+  }
+
+  function cycleOrientation() {
+    paperOrientation = (paperOrientation === 'portrait') ? 'landscape' : 'portrait';
     var modal = document.getElementById('gn-notice-modal');
     var btn = modal && modal.querySelector('#gn-orientation-btn');
     if (btn) {
-      btn.dataset.orientation = orientation;
-      btn.textContent = (orientation === 'portrait') ? 'Landscape' : 'Portrait';
-      btn.setAttribute('aria-pressed', orientation === 'landscape' ? 'true' : 'false');
+      btn.textContent = (paperOrientation === 'portrait') ? 'Landscape' : 'Portrait';
+      btn.setAttribute('aria-pressed', paperOrientation === 'landscape' ? 'true' : 'false');
     }
-    applyPrintOrientation(orientation);
+    applyPageSettings();
   }
 
   /* ---------- Notice modal ---------- */
@@ -293,6 +340,7 @@ document.addEventListener('DOMContentLoaded', function () {
           '<svg class="ic"><use href="#i-close"/></svg>' +
         '</button>' +
         '<div class="gn-modal-actions">' +
+          '<button type="button" id="gn-size-btn" aria-pressed="false">Paper: Auto</button>' +
           '<button type="button" id="gn-orientation-btn" data-orientation="portrait" aria-pressed="false">Landscape</button>' +
           '<button type="button" id="gn-print-btn">' +
             '<svg class="ic"><use href="#i-print"/></svg><span id="gn-print-label">Print</span>' +
@@ -306,10 +354,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (e.target.closest('[data-close="1"]')) closeNoticeModal();
     });
     div.querySelector('#gn-print-btn').addEventListener('click', function () { window.print(); });
-    div.querySelector('#gn-orientation-btn').addEventListener('click', function () {
-      var next = (this.dataset.orientation === 'landscape') ? 'portrait' : 'landscape';
-      setOrientation(next);
-    });
+    div.querySelector('#gn-orientation-btn').addEventListener('click', cycleOrientation);
+    div.querySelector('#gn-size-btn').addEventListener('click', cyclePaperSize);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !div.hidden) closeNoticeModal();
     });
@@ -321,14 +367,39 @@ document.addEventListener('DOMContentLoaded', function () {
     var content = modal.querySelector('#gn-notice-content');
     var printLabel = modal.querySelector('#gn-print-label');
     if (printLabel) printLabel.textContent = (currentLang === 'np') ? 'प्रिन्ट' : 'Print';
+
+    /* Reset mode + orientation each time the modal opens */
+    paperSizeMode = 'auto';
+    paperOrientation = 'portrait';
+    var orientBtn = modal.querySelector('#gn-orientation-btn');
+    if (orientBtn) {
+      orientBtn.textContent = 'Landscape';
+      orientBtn.setAttribute('aria-pressed', 'false');
+    }
+    var sizeBtn = modal.querySelector('#gn-size-btn');
+    if (sizeBtn) {
+      sizeBtn.textContent = 'Paper: Auto';
+      sizeBtn.setAttribute('aria-pressed', 'false');
+    }
+
     content.innerHTML = letterheadHTML(notice, currentLang);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
     document.documentElement.classList.add('gn-printing-notice');
-    setOrientation('portrait');
+    applyPageSettings();
+
     var body = modal.querySelector('.gn-modal-content');
     if (body) body.scrollTop = 0;
+
+    /* Detect paper size AFTER fonts are loaded (webfonts affect height) */
+    function measure() { detectAndSetPaperSize(); }
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(measure);
+    }
+    /* Belt-and-braces — re-measure on next frame too */
+    requestAnimationFrame(measure);
   }
+
   function closeNoticeModal() {
     var modal = document.getElementById('gn-notice-modal');
     if (!modal) return;
