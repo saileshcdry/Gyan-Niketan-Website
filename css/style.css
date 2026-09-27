@@ -978,6 +978,36 @@ p  { margin: 0 0 1em; }
   text-transform: uppercase;
 }
 
+/* Team group photo (About page — faculty section) */
+.team-photo {
+  margin: 0 auto 2.6rem;
+  max-width: 880px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  background: var(--white);
+}
+.team-photo img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  object-position: center 75%;
+}
+.team-photo figcaption {
+  padding: 14px 20px;
+  text-align: center;
+  font-family: var(--font-head);
+  font-weight: 600;
+  color: var(--navy);
+  font-size: .95rem;
+  background: var(--white);
+  border-top: 1px solid var(--gray-100);
+}
+@media (max-width: 640px) {
+  .team-photo img { aspect-ratio: 4 / 3; object-position: center 70%; }
+}
+
 .step-card { position: relative; }
 .step-num {
   display: inline-grid;
@@ -1604,8 +1634,7 @@ p  { margin: 0 0 1em; }
   box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
   max-width: 92vw;
   max-height: 76vh;
-  display: grid;
-  place-items: center;
+  display: grid; place-items: center;
 }
 .gn-lb-image-wrap img {
   max-width: 100%;
