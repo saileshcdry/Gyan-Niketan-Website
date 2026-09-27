@@ -191,16 +191,17 @@ document.addEventListener('DOMContentLoaded', function () {
         '</div>';
     }
 
-    /* Repeating diagonal watermark — inline SVG so it prints even if
-       "Background graphics" is unchecked in the browser print dialog. */
+    /* Repeating diagonal watermark using the school logo.
+       Inline SVG pattern with an <image> element so it prints
+       even if "Background graphics" is unchecked. */
     var watermark =
       '<svg class="letterhead-watermark" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
         '<defs>' +
-          '<pattern id="gn-wm" x="0" y="0" width="260" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">' +
-            '<text x="130" y="90" font-family="Poppins, Inter, sans-serif" font-size="22" font-weight="700" fill="#0A2342" fill-opacity="0.08" text-anchor="middle" dominant-baseline="middle">GYAN NIKETAN</text>' +
+          '<pattern id="gn-wm-logo" x="0" y="0" width="200" height="160" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">' +
+            '<image href="GNlogo.jpg" x="0" y="0" width="160" height="160" opacity="0.07" preserveAspectRatio="xMidYMid meet"/>' +
           '</pattern>' +
         '</defs>' +
-        '<rect width="100%" height="100%" fill="url(#gn-wm)"/>' +
+        '<rect width="100%" height="100%" fill="url(#gn-wm-logo)"/>' +
       '</svg>';
 
     return '' +
