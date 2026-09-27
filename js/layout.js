@@ -216,9 +216,10 @@
       +     '<h4 data-i18n="footer.findus">Find Us</h4>'
       +     '<div class="map-embed">'
       +       '<iframe title="Location map" '
-      +         'src="https://www.google.com/maps?q=Parsa-32,Badan+Nagar,Nepal&output=embed" '
+      +         'src="https://maps.app.goo.gl/JFNNdnxB9uMehbCT9" '
       +         'loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
       +     '</div>'
+      +     '<p style="margin-top:8px;"><a href="https://maps.app.goo.gl/JFNNdnxB9uMehbCT9" target="_blank" rel="noopener">View larger map</a></p>'
       +   '</div>'
 
       + '</div>'
