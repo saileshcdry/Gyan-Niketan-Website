@@ -1,5 +1,376 @@
 [
   {
+    "id": "n-1790493885044",
+    "date": "2026-09-27",
+    "cat": "exam",
+    "title_en": "Anual Examinations",
+    "title_np": "Barsik pariksha",
+    "excerpt_en": "",
+    "excerpt_np": "",
+    "schedule": [
+      {
+        "date": "",
+        "time": "",
+        "subject": "Name of Students",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aaditya pandey",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aaditya Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aafiya Khatun",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aakash Rauniyar",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aakash Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aarti Pandit",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aatif Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aayush Pandey",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aayush Raj Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aayush Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Abinash Mahato",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Aman pandey",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Amit chaubey",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Amit Patel",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Anamika Mandal",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Ananya Tiwari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Anjali sonar",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Anu Rauniyar",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Anuj Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Archana Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Arjun Shah",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Asmit Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Bibek Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Bikesh Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Birjesh Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Bishal Ray",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Enoj Chaudhary",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Gulnaj Parbin",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Irfan Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Ishak Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Jamsaed Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Jikran Khatun",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Majid Khan",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Nairayajam Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Nadani Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Nikhat Khatun",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Niraj Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Pankaj Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Pawan sonar",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Priya Kumari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rabindra Kushwaha",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Ragini Patel",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rahul Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rajababu Patel",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Ranjan Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Reyansh Sahani",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Richa Rauniyar",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rohan Chaudhary",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rubi Kushwaha",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Rupesh Prasad Kanu",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Saba Parbin",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Sahil Ansari",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Sahine Parbin",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Sajid Khan",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Saloni Shriwastav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Samiksharaj Verma",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Sandhaya Yadav",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Sushant Chaudhary",
+        "grade": ""
+      },
+      {
+        "date": "",
+        "time": "",
+        "subject": "Wajid Ansari",
+        "grade": ""
+      }
+    ]
+  },
+  {
     "id": "n-2026-04-15-1",
     "date": "2026-04-15",
     "cat": "exam",
