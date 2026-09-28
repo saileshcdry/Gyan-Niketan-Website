@@ -10,5 +10,7 @@
   { "id": "g-9",  "cat": "event",     "title_en": "Annual Day Performance",     "title_np": "वार्षिक दिवस प्रस्तुति",  "src": "assets/gallery/event-1.jpg" },
   { "id": "g-10", "cat": "event",     "title_en": "Science Exhibition",         "title_np": "विज्ञान प्रदर्शनी",       "src": "assets/gallery/event-2.jpg" },
   { "id": "g-11", "cat": "event",     "title_en": "Cultural Programme",         "title_np": "सांस्कृतिक कार्यक्रम",    "src": "assets/gallery/event-3.jpg" },
-  { "id": "g-12", "cat": "school",    "title_en": "School Library",             "title_np": "विद्यालय पुस्तकालय",      "src": "assets/gallery/campus-3.jpg" }
+  { "id": "g-12", "cat": "school",    "title_en": "School Library",             "title_np": "विद्यालय पुस्तकालय",      "src": "assets/gallery/campus-3.jpg" },
+  { "id": "g-13", "cat": "event",     "title_en": "Open Dance Championship",    "title_np": "खुला नृत्य प्रतियोगिता",  "src": "assets/gallery/open-dance-championship.jpg" },
+  { "id": "g-14", "cat": "event",     "title_en": "SEE Batch 2082",             "title_np": "SEE ब्याच २०८२",          "src": "assets/gallery/see-batch-2082.jpg" }
 ]
