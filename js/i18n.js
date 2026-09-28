@@ -128,7 +128,17 @@ const TRANSLATIONS = {
     'about.faculty.f4.n': 'Mrs. Laxmi Devi Tharu',   'about.faculty.f4.r': 'Head of Primary Section',
     'about.faculty.f5.n': 'Mr. Arjun Kumar Mandal',  'about.faculty.f5.r': 'Head of Mathematics',
     'about.faculty.f6.n': 'Mrs. Rita Chaudhary',     'about.faculty.f6.r': 'Head of English',
-    'about.faculty.ladies.caption': 'Our dedicated ladies teachers team',
+    'about.faculty.photo.caption': 'Our students at the Open Dance Championship',
+
+    /* Vice-Principal's message (About page) */
+    'vp.tag':     "From the Vice-Principal's Desk",
+    'vp.title':   'Learning with Purpose, Growing with Values',
+    'vp.name':    'Umesh Prasad Chaudhary',
+    'vp.role':    'Vice-Principal',
+    'vp.p1':      'A strong school is built on three pillars — dedicated teachers, supportive parents and disciplined students. My role is to ensure all three work together, every single day, so that every child at Gyan Niketan has the best possible chance to succeed.',
+    'vp.p2':      'From the classroom to the playground, we are committed to giving our students an environment where they can ask questions freely, learn from their mistakes, and grow into confident, capable young adults. Our teachers do not just teach the syllabus — they mentor, guide and inspire.',
+    'vp.p3':      'To our parents: thank you for trusting us with your child\u2019s future. To our students: bring your curiosity, work hard, and remember that character matters as much as marks.',
+    'vp.contact': 'Get in touch with us',
 
     /* Academics page */
     'acad.hero.tag': 'Academics',
@@ -385,7 +395,17 @@ const TRANSLATIONS = {
     'about.faculty.f4.n': 'श्रीमती लक्ष्मी देवी थारू',      'about.faculty.f4.r': 'प्राथमिक तह प्रमुख',
     'about.faculty.f5.n': 'श्री अर्जुन कुमार मण्डल',       'about.faculty.f5.r': 'गणित विभाग प्रमुख',
     'about.faculty.f6.n': 'श्रीमती रीता चौधरी',            'about.faculty.f6.r': 'अङ्ग्रेजी विभाग प्रमुख',
-    'about.faculty.ladies.caption': 'हाम्रो समर्पित महिला शिक्षक टोली',
+    'about.faculty.photo.caption': 'खुला नृत्य प्रतियोगितामा हाम्रा विद्यार्थीहरू',
+
+    /* उप-प्रधानाध्यापकको सन्देश (हाम्रोबारे पृष्ठ) */
+    'vp.tag':     'उप-प्रधानाध्यापकको कुरा',
+    'vp.title':   'उद्देश्यका साथ सिकाइ, मूल्यमान्यताका साथ विकास',
+    'vp.name':    'उमेश प्रसाद चौधरी',
+    'vp.role':    'उप-प्रधानाध्यापक',
+    'vp.p1':      'बलियो विद्यालय तीन स्तम्भमा उभिन्छ — समर्पित शिक्षक, सहयोगी अभिभावक र अनुशासित विद्यार्थी। मेरो भूमिका यी तीनैलाई सँगै काम गराउनु हो, जसले गर्दा ज्ञान निकेतनका हरेक बालबालिकाले सफल हुने उत्तम अवसर पाउन्।',
+    'vp.p2':      'कक्षाकोठादेखि खेल मैदानसम्म, हामी विद्यार्थीहरूलाई खुला रूपमा प्रश्न सोध्न, गल्तीबाट सिक्न र आत्मविश्वासी युवा बन्न सक्ने वातावरण दिन प्रतिबद्ध छौं। हाम्रा शिक्षकहरू केवल पाठ्यक्रम पढाउँदैनन् — उनीहरू मार्गदर्शन गर्छन् र प्रेरणा दिन्छन्।',
+    'vp.p3':      'अभिभावकहरूलाई: तपाईंको बच्चाको भविष्यप्रति हामीलाई विश्वास गर्नुभएकोमा धन्यवाद। विद्यार्थीहरूलाई: जिज्ञासा लिएर आउनुहोस्, मिहिनेत गर्नुहोस्, र सम्झनुहोस् — चरित्र अंकभन्दा ठूलो कुरा हो।',
+    'vp.contact': 'हामीलाई सम्पर्क गर्नुहोस्',
 
     'acad.hero.tag': 'शैक्षिक',
     'acad.hero.title': 'बलियो जग बनाउने पाठ्यक्रम',
