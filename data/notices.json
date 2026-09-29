@@ -1,5 +1,604 @@
 [
   {
+    "id": "n-1790682560088",
+    "date": "2026-09-29",
+    "cat": "exam",
+    "title_en": "2nd Terminal Examination Routine - 2083",
+    "title_np": "दोस्रो त्रैमासिक परीक्षा तालिका - २०८३",
+    "excerpt_en": "Student's fee must be cleared till the 18th of Ashoj in order to take the Admit card otherwise Students are not allowed to take exam. School will be closed from 31st of Ashoj to 8th of Kartik 2083 and School will be open from 9th of Kartik and the result will be published on 13th of Kartik.",
+    "excerpt_np": "विद्यार्थीहरूले परीक्षामा सहभागी हुनका लागि असोज १८ गतेभित्र शुल्क बुझाउनु पर्नेछ, अन्यथा प्रवेश पत्र प्राप्त गर्न सकिने छैन। विद्यालय असोज ३१ गतेदेखि कार्तिक ८ गतेसम्म बन्द रहनेछ र कार्तिक ९ गतेबाट खुल्नेछ। नतिजा कार्तिक १३ गते प्रकाशित हुनेछ।",
+    "schedule": [
+      {
+        "date": "2083/06/22",
+        "time": "7:00 AM",
+        "subject": "Nepali",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "7:00 AM",
+        "subject": "Math",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "7:00 AM",
+        "subject": "English",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "7:00 AM",
+        "subject": "Account",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "7:00 AM",
+        "subject": "Science",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "7:00 AM",
+        "subject": "Opt math",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "7:00 AM",
+        "subject": "Social",
+        "grade": "Nine"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "7:00 AM",
+        "subject": "Account",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "7:00 AM",
+        "subject": "Nepali",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "7:00 AM",
+        "subject": "Math",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "7:00 AM",
+        "subject": "Opt math",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "7:00 AM",
+        "subject": "Social",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "7:00 AM",
+        "subject": "Science",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "7:00 AM",
+        "subject": "English",
+        "grade": "Ten"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Assignment",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Computer",
+        "grade": "One"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Computer",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Assignment",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Two"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Computer",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Assignment",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Three"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Computer",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Health",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "Four"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Computer",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Health",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Five"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Opt math",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Health",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "C-math",
+        "grade": "Six"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "C-Math",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Health",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Opt math",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Seven"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Opt math",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Social",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Health",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "C-Math",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Eight"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "English. Oral",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Nepali . oral",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Hygienic",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Math. Oral",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "P.G."
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "English. Oral",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Nepali . oral",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Hygienic",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Math Oral",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "Nursery"
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Dictation",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Drawing",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Table",
+        "grade": "L.K.G."
+      },
+      {
+        "date": "2083/06/22",
+        "time": "10:00 AM",
+        "subject": "English",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/23",
+        "time": "10:00 AM",
+        "subject": "Nepali",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/26",
+        "time": "10:00 AM",
+        "subject": "Math",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/27",
+        "time": "10:00 AM",
+        "subject": "Science",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/28",
+        "time": "10:00 AM",
+        "subject": "Dictation",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/29",
+        "time": "10:00 AM",
+        "subject": "Drawing",
+        "grade": "U.K.G."
+      },
+      {
+        "date": "2083/06/30",
+        "time": "10:00 AM",
+        "subject": "Table",
+        "grade": "U.K.G."
+      }
+    ]
+  },
+  {
     "id": "n-2026-04-15-1",
     "date": "2026-04-15",
     "cat": "exam",
