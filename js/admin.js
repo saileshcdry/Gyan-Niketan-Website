@@ -20,7 +20,6 @@
   }
 
   function $(id) { return document.getElementById(id); }
-
   function show(el) { if (el) el.hidden = false; }
   function hide(el) { if (el) el.hidden = true; }
 
@@ -45,7 +44,6 @@
       repo:  localStorage.getItem(REPO_KEY)  || ''
     };
   }
-
   function isSignedIn() {
     var c = getCreds();
     return !!(c.token && c.repo);
@@ -63,20 +61,17 @@
     log('Signing in with repo=' + repo);
     showDash();
   }
-
   function signOut() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REPO_KEY);
     log('Sign out clicked');
     showLogin();
   }
-
   function showLogin() {
     show($('login-view'));
     hide($('dash-view'));
     setStatus($('login-status'), '', '');
   }
-
   function showDash() {
     hide($('login-view'));
     show($('dash-view'));
@@ -122,7 +117,6 @@
       return { data: JSON.parse(b64decode(data.content)), sha: data.sha };
     });
   }
-
   function writeJSONFile(path, data, sha, message) {
     var body = {
       message: message || 'Update ' + path,
@@ -154,9 +148,9 @@
         return { data: [], sha: null };
       })
     ]).then(function (r) {
-      state.notices   = r[0].data || [];
+      state.notices    = r[0].data || [];
       state.noticesSha = r[0].sha;
-      state.gallery   = r[1].data || [];
+      state.gallery    = r[1].data || [];
       state.gallerySha = r[1].sha;
       setStatus($('status'), '', '');
       renderNotices();
@@ -200,7 +194,6 @@
   }
 
   function openNoticeModal() { show($('notice-modal')); }
-
   function closeNoticeModal() {
     hide($('notice-modal'));
     var f = $('notice-form'); if (f) f.reset();
@@ -209,7 +202,6 @@
     hide($('n-schedule-wrap'));
     if ($('n-schedule-preview')) $('n-schedule-preview').innerHTML = '';
   }
-
   function toggleSchedule() {
     if ($('n-cat') && $('n-cat').value === 'exam') show($('n-schedule-wrap'));
     else hide($('n-schedule-wrap'));
@@ -248,7 +240,6 @@
     if (!notice.title_en && !notice.title_np) { alert('Title is required.'); return; }
     if (NOTICE_CATS.indexOf(notice.category) === -1) { alert('Invalid category.'); return; }
 
-    /* preserve existing schedule on edit */
     for (var i = 0; i < state.notices.length; i++) {
       if (state.notices[i].id === id && state.notices[i].schedule) {
         notice.schedule = state.notices[i].schedule;
@@ -333,7 +324,6 @@
   }
 
   function openPhotoModal() { show($('photo-modal')); }
-
   function closePhotoModal() {
     hide($('photo-modal'));
     var f = $('photo-form'); if (f) f.reset();
@@ -427,7 +417,9 @@
       .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
   }
 
-  /* ---------- CSV / SheetJS ---------- */
+  /* ============================================================
+     CSV / Excel — ROBUST schedule parser
+     ============================================================ */
 
   function loadSheetJS() {
     if (window.XLSX) return Promise.resolve(window.XLSX);
@@ -461,7 +453,7 @@
             var data = new Uint8Array(r.result);
             var wb = XLSX.read(data, { type: 'array' });
             var ws = wb.Sheets[wb.SheetNames[0]];
-            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
             resolve(normalizeSchedule(rows));
           } catch (e) { reject(e); }
         };
@@ -471,45 +463,141 @@
     });
   }
 
+  /* RFC-4180-ish CSV parser. Handles quotes, embedded commas, embedded newlines, CRLF. */
   function parseCSV(text) {
-    var lines = text.split(/\r?\n/).filter(function (l) { return l.trim() !== ''; });
+    // strip BOM
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
     var rows = [];
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i], cells = [], cur = '', inQ = false;
-      for (var j = 0; j < line.length; j++) {
-        var ch = line[j];
+    var cur = [];
+    var field = '';
+    var inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) {
         if (ch === '"') {
-          if (inQ && line[j + 1] === '"') { cur += '"'; j++; }
-          else inQ = !inQ;
-        } else if (ch === ',' && !inQ) {
-          cells.push(cur.trim()); cur = '';
-        } else cur += ch;
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else { inQ = false; }
+        } else {
+          field += ch;
+        }
+      } else {
+        if (ch === '"') { inQ = true; }
+        else if (ch === ',') { cur.push(field); field = ''; }
+        else if (ch === '\r') { /* skip */ }
+        else if (ch === '\n') {
+          cur.push(field);
+          rows.push(cur);
+          cur = []; field = '';
+        } else {
+          field += ch;
+        }
       }
-      cells.push(cur.trim());
-      rows.push(cells);
+    }
+    // last field / row
+    if (field.length || cur.length) {
+      cur.push(field);
+      rows.push(cur);
     }
     return rows;
   }
 
+  /* Normalize a header cell: strip BOM, trim, lowercase, remove all non-alphanumerics */
+  function normHeader(s) {
+    return String(s == null ? '' : s)
+      .replace(/\uFEFF/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  /* Find the index of a column whose normalized header matches one of the aliases.
+     First tries exact match, then partial (contains) match. */
+  function findCol(headers, aliases) {
+    var i, j;
+    for (i = 0; i < headers.length; i++) {
+      for (j = 0; j < aliases.length; j++) {
+        if (headers[i] === aliases[j]) return i;
+      }
+    }
+    for (i = 0; i < headers.length; i++) {
+      if (!headers[i]) continue;
+      for (j = 0; j < aliases.length; j++) {
+        if (headers[i].indexOf(aliases[j]) !== -1) return i;
+      }
+    }
+    return -1;
+  }
+
   function normalizeSchedule(rows) {
     if (!rows || !rows.length) return [];
-    var h = rows[0].map(function (x) { return String(x).trim().toLowerCase(); });
-    var iD = h.indexOf('date'), iT = h.indexOf('time'),
-        iS = h.indexOf('subject'), iG = h.indexOf('grade');
-    if (iD === -1 || iT === -1 || iS === -1 || iG === -1) {
-      throw new Error('File must have columns: Date, Time, Subject, Grade');
+
+    // Find a header row within the first ~5 rows (skip blank leading rows)
+    var headerRowIdx = -1;
+    var headers = null;
+    for (var r = 0; r < Math.min(rows.length, 5); r++) {
+      var candidate = (rows[r] || []).map(normHeader);
+      var nonEmpty = candidate.filter(function (x) { return x; });
+      if (nonEmpty.length >= 2) {
+        headerRowIdx = r;
+        headers = candidate;
+        break;
+      }
     }
+    if (headerRowIdx === -1) {
+      throw new Error('Could not find a header row. First row was: ' +
+        (rows[0] ? rows[0].join(' | ') : '(empty)'));
+    }
+
+    // Aliases — keep lowercase, no punctuation
+    var dateAliases    = ['date', 'examdate', 'examday', 'miti', 'datebs', 'datead', 'datebsad'];
+    var timeAliases    = ['time', 'examtime', 'samaya', 'shift', 'slot'];
+    var subjectAliases = ['subject', 'subjectname', 'paper', 'sub', 'vishay', 'visay', 'topic'];
+    var gradeAliases   = ['grade', 'class', 'classname', 'level', 'kaksha', 'std', 'standard'];
+
+    var iD = findCol(headers, dateAliases);
+    var iT = findCol(headers, timeAliases);
+    var iS = findCol(headers, subjectAliases);
+    var iG = findCol(headers, gradeAliases);
+
+    // Fallback: if Time column is missing, tolerate it — set all rows to same group
+    var missing = [];
+    if (iD === -1) missing.push('Date');
+    if (iS === -1) missing.push('Subject');
+    if (iG === -1) missing.push('Grade');
+    // Time is optional now (we won't fail if absent)
+    if (missing.length) {
+      throw new Error(
+        'Missing required columns: ' + missing.join(', ') + '. ' +
+        'Headers found: ' + rows[headerRowIdx].join(' | ')
+      );
+    }
+
     var out = [];
-    for (var i = 1; i < rows.length; i++) {
-      var r = rows[i];
-      if (!r || r.length < 4) continue;
-      out.push({
-        date: String(r[iD] || '').trim(),
-        time: String(r[iT] || '').trim(),
-        subject: String(r[iS] || '').trim(),
-        grade: String(r[iG] || '').trim()
-      });
+    for (var i = headerRowIdx + 1; i < rows.length; i++) {
+      var row = rows[i] || [];
+      if (!row.length) continue;
+      var date    = String(iD !== -1 ? (row[iD] || '') : '').trim();
+      var time    = String(iT !== -1 ? (row[iT] || '') : '').trim();
+      var subject = String(row[iS] || '').trim();
+      var grade   = String(row[iG] || '').trim();
+      if (!date && !time && !subject && !grade) continue; // skip fully blank rows
+
+      // If date/time came in as a Date object from XLSX, stringify cleanly
+      if (date instanceof Date)    date = date.toISOString().slice(0, 10);
+      if (time instanceof Date)    time = time.toISOString().slice(11, 16);
+
+      out.push({ date: date, time: time, subject: subject, grade: grade });
     }
+
+    if (!out.length) {
+      throw new Error('No data rows found after header. Header row was: ' +
+        rows[headerRowIdx].join(' | '));
+    }
+
+    log('Schedule parsed: ' + out.length + ' rows, headers=' +
+        rows[headerRowIdx].join('|') +
+        ' → dateCol=' + iD + ' timeCol=' + iT +
+        ' subjectCol=' + iS + ' gradeCol=' + iG);
     return out;
   }
 
