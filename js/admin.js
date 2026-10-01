@@ -1,10 +1,13 @@
 /**
  * admin.js — Gyan Niketan admin panel
  * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
- * Schedule parser supports 3 layouts:
+ *
+ * Schedule parser handles 3 layouts:
  *   A) header row with field names: Date | Time | Subject | Grade
  *   B) transposed: field names in column 0, data across columns
- *   C) matrix: column 0 = Class/Grade, other columns = dates, cells = subjects
+ *   C) matrix: column 0 = Class/Grade, other columns = dates, cells = subjects.
+ *      Multiple matrix sections in one file are supported (separated by blank rows
+ *      or by another "Class | dates..." header row).
  */
 (function () {
   'use strict';
@@ -416,7 +419,7 @@
   }
 
   /* ============================================================
-     CSV / Excel schedule parser — three layouts
+     CSV / Excel schedule parser — 3 layouts
      ============================================================ */
 
   function loadSheetJS() {
@@ -449,9 +452,9 @@
         r.onload = function () {
           try {
             var data = new Uint8Array(r.result);
-            var wb = XLSX.read(data, { type: 'array' });
+            var wb = XLSX.read(data, { type: 'array', cellDates: false });
             var ws = wb.Sheets[wb.SheetNames[0]];
-            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: true });
             resolve(normalizeSchedule(rows));
           } catch (e) { reject(e); }
         };
@@ -520,19 +523,15 @@
     return null;
   }
 
-  function toISODate(v) {
+  function cellStr(v) {
+    if (v == null) return '';
     if (v instanceof Date) return v.toISOString().slice(0, 10);
-    return String(v == null ? '' : v).trim();
-  }
-  function toISOTime(v) {
-    if (v instanceof Date) return v.toISOString().slice(11, 16);
-    return String(v == null ? '' : v).trim();
+    return String(v).trim();
   }
 
-  /* Looks like a date: 2083/06/22, 2083-06-22, 2083.06.22, 24/04/2026, etc. */
   function looksLikeDate(v) {
     if (v instanceof Date) return true;
-    var s = String(v == null ? '' : v).trim();
+    var s = cellStr(v);
     if (!s) return false;
     return /^\d{2,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/.test(s);
   }
@@ -546,7 +545,7 @@
     throw new Error('Could not detect a known layout. First rows: ' + preview);
   }
 
-  /* --- Layout A: header row with field names --- */
+  /* --- A: header row with field names --- */
   function tryRowHeaders(rows) {
     for (var r = 0; r < Math.min(rows.length, 5); r++) {
       var headers = (rows[r] || []).map(normHeader);
@@ -562,10 +561,10 @@
       var out = [];
       for (var i = r + 1; i < rows.length; i++) {
         var row = rows[i] || [];
-        var date    = toISODate(row[iD]);
-        var time    = iT !== -1 ? toISOTime(row[iT]) : '';
-        var subject = String(row[iS] == null ? '' : row[iS]).trim();
-        var grade   = String(row[iG] == null ? '' : row[iG]).trim();
+        var date    = cellStr(row[iD]);
+        var time    = iT !== -1 ? cellStr(row[iT]) : '';
+        var subject = cellStr(row[iS]);
+        var grade   = cellStr(row[iG]);
         if (!date && !time && !subject && !grade) continue;
         out.push({ date: date, time: time, subject: subject, grade: grade });
       }
@@ -577,7 +576,7 @@
     return null;
   }
 
-  /* --- Layout B: field names in column 0, data across columns --- */
+  /* --- B: field names in column 0, data across columns --- */
   function tryColumnHeaders(rows) {
     var fieldRow = {};
     var scan = Math.min(rows.length, 10);
@@ -597,10 +596,10 @@
 
     var out = [];
     for (var c = 1; c < maxCols; c++) {
-      var date    = toISODate((rows[fieldRow.date]    || [])[c]);
-      var time    = fieldRow.time != null ? toISOTime((rows[fieldRow.time] || [])[c]) : '';
-      var subject = String(((rows[fieldRow.subject] || [])[c]) == null ? '' : (rows[fieldRow.subject] || [])[c]).trim();
-      var grade   = String(((rows[fieldRow.grade]   || [])[c]) == null ? '' : (rows[fieldRow.grade]   || [])[c]).trim();
+      var date    = cellStr((rows[fieldRow.date]    || [])[c]);
+      var time    = fieldRow.time != null ? cellStr((rows[fieldRow.time] || [])[c]) : '';
+      var subject = cellStr((rows[fieldRow.subject] || [])[c]);
+      var grade   = cellStr((rows[fieldRow.grade]   || [])[c]);
       if (!date && !time && !subject && !grade) continue;
       out.push({ date: date, time: time, subject: subject, grade: grade });
     }
@@ -611,12 +610,11 @@
     return null;
   }
 
-  /* --- Layout C: matrix ---
+  /* --- C: matrix ---
        Class   | 2083/06/22 | 2083/06/23 | ...
        Nine    | Nepali     | Math       | ...
-       Ten     | English    | Nepali     | ...
-     Time is taken from any preceding row that looks like a time label.
-     Multiple such tables (with different time labels) in one file are supported. */
+       (blank row or another "Class | dates" header starts a new section)
+     Time labels are captured if a lone row above a section contains a time-like value. */
   function tryMatrix(rows) {
     var out = [];
     var currentTime = '';
@@ -635,22 +633,15 @@
           while (i < rows.length) {
             var drow = rows[i] || [];
 
-            // skip fully blank rows
-            var hasData = false;
-            for (var x = 0; x < drow.length; x++) {
-              if (String(drow[x] == null ? '' : drow[x]).trim()) { hasData = true; break; }
-            }
-            if (!hasData) { i++; continue; }
-
-            // stop when we hit the next header or time label
+            if (!rowHasData(drow)) { i++; continue; }
             if (isMatrixHeaderRow(drow)) break;
             if (detectTimeLabel(drow)) break;
 
-            var grade = String(drow[0] == null ? '' : drow[0]).trim();
+            var grade = cellStr(drow[0]);
             if (grade) {
               for (var d = 0; d < dateCols.length; d++) {
                 var dc = dateCols[d];
-                var subj = String(drow[dc.col] == null ? '' : drow[dc.col]).trim();
+                var subj = cellStr(drow[dc.col]);
                 if (!subj) continue;
                 out.push({ date: dc.date, time: currentTime, subject: subj, grade: grade });
               }
@@ -670,6 +661,14 @@
     return null;
   }
 
+  function rowHasData(row) {
+    if (!row) return false;
+    for (var x = 0; x < row.length; x++) {
+      if (cellStr(row[x])) return true;
+    }
+    return false;
+  }
+
   function isMatrixHeaderRow(row) {
     if (!row || row.length < 2) return false;
     var first = normHeader(row[0]);
@@ -683,7 +682,7 @@
   function extractDateColsFromHeader(row) {
     var cols = [];
     for (var c = 1; c < row.length; c++) {
-      if (looksLikeDate(row[c])) cols.push({ col: c, date: toISODate(row[c]) });
+      if (looksLikeDate(row[c])) cols.push({ col: c, date: cellStr(row[c]) });
     }
     return cols;
   }
@@ -692,17 +691,15 @@
     if (!row || !row.length) return '';
     var nonEmpty = [];
     for (var i = 0; i < row.length; i++) {
-      var v = String(row[i] == null ? '' : row[i]).trim();
+      var v = cellStr(row[i]);
       if (v) nonEmpty.push(v);
     }
     if (!nonEmpty.length || nonEmpty.length > 2) return '';
     var joined = nonEmpty.join(' ').trim();
 
-    // "7:00 AM", "10:00 AM", "Time: 7:00 AM"
     var m = joined.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/);
     if (m) return m[1].toUpperCase().replace(/\s+/g, ' ');
 
-    // Named shift labels
     if (/^(morning|afternoon|evening|primary|secondary|basic|pre.?primary|shift\s*\d+|time\s*\d*|first\s*shift|second\s*shift|third\s*shift)$/i.test(joined)) {
       return joined;
     }
