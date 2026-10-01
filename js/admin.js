@@ -1,6 +1,6 @@
 /**
  * admin.js - Gyan Niketan admin panel
- * Corrected: no applyLanguage, no main.js dependency.
+ * Matches admin.html element IDs.
  */
 (function () {
   'use strict';
@@ -11,22 +11,20 @@
   var GALLERY_CATS = ['school', 'classroom', 'lab', 'sports', 'event'];
   var API = 'https://api.github.com/repos/';
 
-  function showFatalError(err) {
-    console.error('[ADMIN] Fatal error:', err);
-    var el = document.getElementById('admin-error');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'admin-error';
-      el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:12px;z-index:9999;font-family:monospace;white-space:pre-wrap;';
-      document.body.appendChild(el);
-    }
-    el.textContent = 'Admin error: ' + (err && err.message ? err.message : String(err));
-  }
-
   function log() {
-    var args = Array.prototype.slice.call(arguments);
-    args.unshift('[ADMIN]');
-    console.log.apply(console, args);
+    var a = Array.prototype.slice.call(arguments);
+    a.unshift('[ADMIN]');
+    console.log.apply(console, a);
+  }
+  function $(id) { return document.getElementById(id); }
+  function show(el) { if (el) el.hidden = false; }
+  function hide(el) { if (el) el.hidden = true; }
+
+  function setStatus(el, msg, type) {
+    if (!el) return;
+    el.textContent = msg || '';
+    el.hidden = !msg;
+    el.className = 'admin-status' + (type ? ' is-' + type : '');
   }
 
   function getCreds() {
@@ -35,59 +33,47 @@
       repo: localStorage.getItem(REPO_KEY) || ''
     };
   }
-
   function isSignedIn() {
     var c = getCreds();
     return !!(c.token && c.repo);
   }
 
-  function signIn(e) {
-    if (e) e.preventDefault();
-    var tokenEl = document.getElementById('token');
-    var repoEl = document.getElementById('repo');
-    if (!tokenEl || !repoEl) {
-      showFatalError(new Error('Missing #token or #repo input'));
-      return;
-    }
-    var token = tokenEl.value.trim();
-    var repo = repoEl.value.trim();
+  function signIn() {
+    var token = ($('token') || {}).value || '';
+    var repo = ($('repo') || {}).value || '';
+    token = token.trim(); repo = repo.trim();
     if (!token || !repo) {
-      alert('Please enter both GitHub token and repository (owner/repo).');
+      setStatus($('login-status'), 'Please enter both repository and token.', 'error');
       return;
     }
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(REPO_KEY, repo);
-    log('Signed in as repo:', repo);
+    log('Signing in with repo=' + repo);
     showDash();
   }
 
   function signOut() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REPO_KEY);
-    log('Signed out');
+    log('Sign out clicked');
     showLogin();
   }
 
   function showLogin() {
-    var loginView = document.getElementById('login-view');
-    var dashView = document.getElementById('dash-view');
-    if (loginView) loginView.style.display = '';
-    if (dashView) dashView.style.display = 'none';
+    show($('login-view'));
+    hide($('dash-view'));
+    setStatus($('login-status'), '', '');
   }
 
   function showDash() {
-    var loginView = document.getElementById('login-view');
-    var dashView = document.getElementById('dash-view');
-    if (loginView) loginView.style.display = 'none';
-    if (dashView) dashView.style.display = '';
+    hide($('login-view'));
+    show($('dash-view'));
     loadData();
   }
 
   function ghFetch(method, path, body) {
     var c = getCreds();
-    if (!c.token || !c.repo) {
-      return Promise.reject(new Error('Not signed in'));
-    }
+    if (!c.token || !c.repo) return Promise.reject(new Error('Not signed in'));
     var url = API + c.repo + '/contents/' + path;
     var opts = {
       method: method,
@@ -100,30 +86,25 @@
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
-    log('GitHub API', method, path);
+    log('GitHub API ' + method + ' ' + path);
     return fetch(url, opts).then(function (res) {
-      if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (err) {
-          var msg = err.message || res.statusText;
-          if (res.status === 409) msg = 'Conflict: ' + msg + ' (refresh and try again)';
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var msg = data.message || res.statusText;
+          if (res.status === 409) msg = 'Conflict: ' + msg + ' (refresh and retry)';
           if (res.status === 422) msg = 'Unprocessable: ' + msg;
           throw new Error(msg);
-        });
-      }
-      return res.json();
+        }
+        return data;
+      });
     });
   }
 
-  function b64encode(str) {
-    return btoa(unescape(encodeURIComponent(str)));
-  }
-
-  function b64decode(str) {
-    return decodeURIComponent(escape(atob(str.replace(/\s/g, ''))));
-  }
+  function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
+  function b64decode(str) { return decodeURIComponent(escape(atob(str.replace(/\s/g, '')))); }
 
   function readJSONFile(path) {
-    return ghFetch('GET', path + '?ref=main').then(function (data) {
+    return ghFetch('GET', path).then(function (data) {
       return { data: JSON.parse(b64decode(data.content)), sha: data.sha };
     });
   }
@@ -138,101 +119,114 @@
     return ghFetch('PUT', path, body);
   }
 
-  var state = {
-    notices: [],
-    gallery: [],
-    noticesSha: null,
-    gallerySha: null,
-    editingNoticeId: null,
-    editingPhotoId: null
-  };
+  var state = { notices: [], gallery: [], noticesSha: null, gallerySha: null };
 
   function loadData() {
-    log('Loading data...');
+    setStatus($('status'), 'Loading…', 'info');
     Promise.all([
       readJSONFile('data/notices.json').catch(function (e) {
-        log('Notices load error', e);
+        log('Notices load error: ' + e.message);
         return { data: [], sha: null };
       }),
       readJSONFile('data/gallery.json').catch(function (e) {
-        log('Gallery load error', e);
+        log('Gallery load error: ' + e.message);
         return { data: [], sha: null };
       })
-    ]).then(function (results) {
-      state.notices = results[0].data || [];
-      state.noticesSha = results[0].sha;
-      state.gallery = results[1].data || [];
-      state.gallerySha = results[1].sha;
+    ]).then(function (r) {
+      state.notices = r[0].data || [];
+      state.noticesSha = r[0].sha;
+      state.gallery = r[1].data || [];
+      state.gallerySha = r[1].sha;
+      setStatus($('status'), '', '');
       renderNotices();
       renderGallery();
     }).catch(function (err) {
-      showFatalError(err);
+      log('Load error: ' + err.message);
+      setStatus($('status'), 'Failed to load data: ' + err.message, 'error');
     });
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (m) {
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
     });
   }
 
   function renderNotices() {
-    var list = document.getElementById('notices-list');
+    var list = $('notices-list');
     if (!list) return;
     list.innerHTML = '';
     if (!state.notices.length) {
-      list.innerHTML = '<p>No notices yet.</p>';
+      list.innerHTML = '<p>No notices yet. Click "+ Add Notice" to create one.</p>';
       return;
     }
     state.notices.forEach(function (n) {
       var div = document.createElement('div');
       div.className = 'admin-item';
-      div.innerHTML = '<strong>' + escapeHtml(n.title_en || n.title_np || 'Untitled') + '</strong>' +
-        '<span> ' + escapeHtml(n.date || '') + ' · ' + escapeHtml(n.category || '') + '</span>' +
-        '<button data-id="' + n.id + '" class="edit-notice">Edit</button>' +
-        '<button data-id="' + n.id + '" class="delete-notice">Delete</button>';
+      div.innerHTML =
+        '<div class="admin-item-info">' +
+          '<strong>' + esc(n.title_en || n.title_np || 'Untitled') + '</strong>' +
+          '<span>' + esc(n.date || '') + ' · ' + esc(n.category || '') + '</span>' +
+        '</div>' +
+        '<div class="admin-item-actions">' +
+          '<button type="button" class="btn btn-outline edit-notice" data-id="' + esc(n.id) + '">Edit</button>' +
+          '<button type="button" class="btn btn-outline delete-notice" data-id="' + esc(n.id) + '">Delete</button>' +
+        '</div>';
       list.appendChild(div);
     });
-    Array.prototype.forEach.call(list.querySelectorAll('.edit-notice'), function (btn) {
-      btn.addEventListener('click', function () {
-        editNotice(btn.getAttribute('data-id'));
-      });
+    Array.prototype.forEach.call(list.querySelectorAll('.edit-notice'), function (b) {
+      b.addEventListener('click', function () { editNotice(b.getAttribute('data-id')); });
     });
-    Array.prototype.forEach.call(list.querySelectorAll('.delete-notice'), function (btn) {
-      btn.addEventListener('click', function () {
-        deleteNotice(btn.getAttribute('data-id'));
-      });
+    Array.prototype.forEach.call(list.querySelectorAll('.delete-notice'), function (b) {
+      b.addEventListener('click', function () { deleteNotice(b.getAttribute('data-id')); });
     });
   }
 
   function renderGallery() {
-    var list = document.getElementById('gallery-list');
+    var list = $('gallery-list');
     if (!list) return;
     list.innerHTML = '';
     if (!state.gallery.length) {
-      list.innerHTML = '<p>No photos yet.</p>';
+      list.innerHTML = '<p>No photos yet. Click "+ Upload Photo" to add one.</p>';
       return;
     }
     state.gallery.forEach(function (g) {
       var div = document.createElement('div');
-      div.className = 'admin-item';
-      div.innerHTML = '<img src="' + escapeHtml(g.src) + '" style="max-width:80px;vertical-align:middle;"> ' +
-        '<strong>' + escapeHtml(g.title_en || g.title_np || 'Untitled') + '</strong>' +
-        '<span> ' + escapeHtml(g.cat || '') + '</span>' +
-        '<button data-id="' + g.id + '" class="edit-photo">Edit</button>' +
-        '<button data-id="' + g.id + '" class="delete-photo">Delete</button>';
+      div.className = 'admin-gallery-item';
+      div.innerHTML =
+        '<img src="' + esc(g.src) + '" alt="" onerror="this.style.opacity=0.3">' +
+        '<div class="admin-gallery-meta">' +
+          '<strong>' + esc(g.title_en || g.title_np || 'Untitled') + '</strong>' +
+          '<span>' + esc(g.cat || '') + '</span>' +
+        '</div>' +
+        '<div class="admin-item-actions">' +
+          '<button type="button" class="btn btn-outline edit-photo" data-id="' + esc(g.id) + '">Edit</button>' +
+          '<button type="button" class="btn btn-outline delete-photo" data-id="' + esc(g.id) + '">Delete</button>' +
+        '</div>';
       list.appendChild(div);
     });
-    Array.prototype.forEach.call(list.querySelectorAll('.edit-photo'), function (btn) {
-      btn.addEventListener('click', function () {
-        editPhoto(btn.getAttribute('data-id'));
-      });
+    Array.prototype.forEach.call(list.querySelectorAll('.edit-photo'), function (b) {
+      b.addEventListener('click', function () { editPhoto(b.getAttribute('data-id')); });
     });
-    Array.prototype.forEach.call(list.querySelectorAll('.delete-photo'), function (btn) {
-      btn.addEventListener('click', function () {
-        deletePhoto(btn.getAttribute('data-id'));
-      });
+    Array.prototype.forEach.call(list.querySelectorAll('.delete-photo'), function (b) {
+      b.addEventListener('click', function () { deletePhoto(b.getAttribute('data-id')); });
     });
+  }
+
+  /* ----- Notice modal ----- */
+  function openNoticeModal() { show($('notice-modal')); }
+  function closeNoticeModal() {
+    hide($('notice-modal'));
+    var f = $('notice-form'); if (f) f.reset();
+    if ($('n-id')) $('n-id').value = '';
+    if ($('notice-modal-title')) $('notice-modal-title').textContent = 'Add Notice';
+    hide($('n-schedule-wrap'));
+    if ($('n-schedule-preview')) $('n-schedule-preview').innerHTML = '';
+  }
+
+  function toggleSchedule() {
+    if ($('n-cat') && $('n-cat').value === 'exam') show($('n-schedule-wrap'));
+    else hide($('n-schedule-wrap'));
   }
 
   function editNotice(id) {
@@ -241,94 +235,91 @@
       if (state.notices[i].id === id) { n = state.notices[i]; break; }
     }
     if (!n) return;
-    state.editingNoticeId = id;
-    var f = {
-      id: document.getElementById('notice-id'),
-      date: document.getElementById('notice-date'),
-      cat: document.getElementById('notice-category'),
-      titleEn: document.getElementById('notice-title-en'),
-      titleNp: document.getElementById('notice-title-np'),
-      msgEn: document.getElementById('notice-message-en'),
-      msgNp: document.getElementById('notice-message-np')
-    };
-    if (f.id) f.id.value = n.id || '';
-    if (f.date) f.date.value = n.date || '';
-    if (f.cat) f.cat.value = n.category || 'general';
-    if (f.titleEn) f.titleEn.value = n.title_en || '';
-    if (f.titleNp) f.titleNp.value = n.title_np || '';
-    if (f.msgEn) f.msgEn.value = n.message_en || '';
-    if (f.msgNp) f.msgNp.value = n.message_np || '';
-    var form = document.getElementById('notice-form');
-    if (form) form.style.display = '';
-  }
-
-  function deleteNotice(id) {
-    if (!confirm('Delete this notice?')) return;
-    var next = state.notices.filter(function (n) { return n.id !== id; });
-    writeJSONFile('data/notices.json', next, state.noticesSha, 'Delete notice ' + id)
-      .then(function () {
-        log('Notice deleted:', id);
-        loadData();
-      })
-      .catch(showFatalError);
+    $('notice-modal-title').textContent = 'Edit Notice';
+    $('n-id').value = n.id || '';
+    $('n-date').value = n.date || '';
+    $('n-cat').value = n.category || 'general';
+    $('n-title-en').value = n.title_en || '';
+    $('n-title-np').value = n.title_np || '';
+    $('n-ex-en').value = n.message_en || '';
+    $('n-ex-np').value = n.message_np || '';
+    toggleSchedule();
+    openNoticeModal();
   }
 
   function saveNotice(e) {
     if (e) e.preventDefault();
-    var id = document.getElementById('notice-id') ? document.getElementById('notice-id').value : '';
-    var date = document.getElementById('notice-date') ? document.getElementById('notice-date').value : '';
-    var cat = document.getElementById('notice-category') ? document.getElementById('notice-category').value : 'general';
-    var titleEn = document.getElementById('notice-title-en') ? document.getElementById('notice-title-en').value : '';
-    var titleNp = document.getElementById('notice-title-np') ? document.getElementById('notice-title-np').value : '';
-    var msgEn = document.getElementById('notice-message-en') ? document.getElementById('notice-message-en').value : '';
-    var msgNp = document.getElementById('notice-message-np') ? document.getElementById('notice-message-np').value : '';
-    if (!titleEn && !titleNp) { alert('Title is required.'); return; }
-    if (NOTICE_CATS.indexOf(cat) === -1) { alert('Invalid notice category.'); return; }
-
+    var id = $('n-id').value || 'n-' + Date.now();
     var notice = {
-      id: id || 'n-' + Date.now(),
-      date: date,
-      category: cat,
-      title_en: titleEn,
-      title_np: titleNp,
-      message_en: msgEn,
-      message_np: msgNp
+      id: id,
+      date: $('n-date').value,
+      category: $('n-cat').value,
+      title_en: $('n-title-en').value.trim(),
+      title_np: $('n-title-np').value.trim(),
+      message_en: $('n-ex-en').value,
+      message_np: $('n-ex-np').value
     };
+    if (!notice.title_en && !notice.title_np) { alert('Title is required.'); return; }
+    if (NOTICE_CATS.indexOf(notice.category) === -1) { alert('Invalid category.'); return; }
 
-    // If exam category, try to parse schedule file
-    if (cat === 'exam') {
-      var fileInput = document.getElementById('notice-schedule-file');
-      if (fileInput && fileInput.files && fileInput.files[0]) {
-        parseScheduleFile(fileInput.files[0]).then(function (rows) {
-          notice.schedule = rows;
-          commitNotice(notice);
-        }).catch(function (err) {
-          alert('Schedule parse error: ' + err.message);
-        });
-        return;
+    for (var i = 0; i < state.notices.length; i++) {
+      if (state.notices[i].id === id && state.notices[i].schedule) {
+        notice.schedule = state.notices[i].schedule;
+        break;
       }
+    }
+
+    var fileInput = $('n-schedule-file');
+    if (notice.category === 'exam' && fileInput && fileInput.files && fileInput.files[0]) {
+      parseScheduleFile(fileInput.files[0]).then(function (rows) {
+        notice.schedule = rows;
+        commitNotice(notice);
+      }).catch(function (err) {
+        alert('Schedule parse error: ' + err.message);
+      });
+      return;
     }
     commitNotice(notice);
   }
 
   function commitNotice(notice) {
-    var existing = state.notices.slice();
+    var list = state.notices.slice();
     var idx = -1;
-    for (var i = 0; i < existing.length; i++) {
-      if (existing[i].id === notice.id) { idx = i; break; }
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === notice.id) { idx = i; break; }
     }
-    if (idx >= 0) existing[idx] = notice;
-    else existing.push(notice);
-
-    writeJSONFile('data/notices.json', existing, state.noticesSha, 'Save notice ' + notice.id)
+    if (idx >= 0) list[idx] = notice; else list.push(notice);
+    setStatus($('status'), 'Saving notice…', 'info');
+    writeJSONFile('data/notices.json', list, state.noticesSha, 'Save notice ' + notice.id)
       .then(function () {
-        log('Notice saved:', notice.id);
-        state.editingNoticeId = null;
-        var form = document.getElementById('notice-form');
-        if (form) form.reset();
+        log('Notice saved: ' + notice.id);
+        closeNoticeModal();
+        setStatus($('status'), 'Notice saved.', 'ok');
         loadData();
       })
-      .catch(showFatalError);
+      .catch(function (err) {
+        log('Save failed: ' + err.message);
+        setStatus($('status'), 'Save failed: ' + err.message, 'error');
+      });
+  }
+
+  function deleteNotice(id) {
+    if (!confirm('Delete this notice?')) return;
+    var list = state.notices.filter(function (n) { return n.id !== id; });
+    setStatus($('status'), 'Deleting notice…', 'info');
+    writeJSONFile('data/notices.json', list, state.noticesSha, 'Delete notice ' + id)
+      .then(function () { setStatus($('status'), 'Notice deleted.', 'ok'); loadData(); })
+      .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
+  }
+
+  /* ----- Photo modal ----- */
+  function openPhotoModal() { show($('photo-modal')); }
+  function closePhotoModal() {
+    hide($('photo-modal'));
+    var f = $('photo-form'); if (f) f.reset();
+    if ($('p-id')) $('p-id').value = '';
+    if ($('p-existing-src')) $('p-existing-src').value = '';
+    if ($('photo-modal-title')) $('photo-modal-title').textContent = 'Upload Photo';
   }
 
   function editPhoto(id) {
@@ -337,97 +328,84 @@
       if (state.gallery[i].id === id) { g = state.gallery[i]; break; }
     }
     if (!g) return;
-    state.editingPhotoId = id;
-    var f = {
-      id: document.getElementById('photo-id'),
-      cat: document.getElementById('photo-category'),
-      titleEn: document.getElementById('photo-title-en'),
-      titleNp: document.getElementById('photo-title-np')
-    };
-    if (f.id) f.id.value = g.id || '';
-    if (f.cat) f.cat.value = g.cat || 'school';
-    if (f.titleEn) f.titleEn.value = g.title_en || '';
-    if (f.titleNp) f.titleNp.value = g.title_np || '';
-    var form = document.getElementById('photo-form');
-    if (form) form.style.display = '';
-  }
-
-  function deletePhoto(id) {
-    if (!confirm('Delete this photo?')) return;
-    var next = state.gallery.filter(function (g) { return g.id !== id; });
-    writeJSONFile('data/gallery.json', next, state.gallerySha, 'Delete photo ' + id)
-      .then(function () {
-        log('Photo deleted:', id);
-        loadData();
-      })
-      .catch(showFatalError);
+    $('photo-modal-title').textContent = 'Edit Photo';
+    $('p-id').value = g.id || '';
+    $('p-existing-src').value = g.src || '';
+    $('p-cat').value = g.cat || 'school';
+    $('p-title-en').value = g.title_en || '';
+    $('p-title-np').value = g.title_np || '';
+    openPhotoModal();
   }
 
   function savePhoto(e) {
     if (e) e.preventDefault();
-    var id = document.getElementById('photo-id') ? document.getElementById('photo-id').value : '';
-    var cat = document.getElementById('photo-category') ? document.getElementById('photo-category').value : 'school';
-    var titleEn = document.getElementById('photo-title-en') ? document.getElementById('photo-title-en').value : '';
-    var titleNp = document.getElementById('photo-title-np') ? document.getElementById('photo-title-np').value : '';
-    var fileInput = document.getElementById('photo-file');
+    var id = $('p-id').value || 'g-' + Date.now();
+    var cat = $('p-cat').value;
+    var titleEn = $('p-title-en').value.trim();
+    var titleNp = $('p-title-np').value.trim();
+    var existingSrc = $('p-existing-src').value;
+    var fileInput = $('p-file');
     if (!titleEn && !titleNp) { alert('Title is required.'); return; }
-    if (GALLERY_CATS.indexOf(cat) === -1) { alert('Invalid gallery category.'); return; }
+    if (GALLERY_CATS.indexOf(cat) === -1) { alert('Invalid category.'); return; }
+
     if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-      if (!id) { alert('Please choose a photo.'); return; }
-      // Editing without new file: just update metadata
-      updateGalleryEntry(id, cat, titleEn, titleNp, null);
+      if (!existingSrc) { alert('Please choose a photo.'); return; }
+      updateGalleryEntry(id, cat, titleEn, titleNp, existingSrc);
       return;
     }
     var file = fileInput.files[0];
     if (file.size > 2 * 1024 * 1024) { alert('Photo must be under 2 MB.'); return; }
+
     var reader = new FileReader();
     reader.onload = function () {
       var base64 = reader.result.split(',')[1];
       var ext = file.name.split('.').pop().toLowerCase();
-      var newId = id || 'g-' + Date.now();
-      var filename = newId + '.' + ext;
+      var filename = id + '.' + ext;
       var path = 'assets/gallery/' + filename;
+      setStatus($('status'), 'Uploading photo…', 'info');
       ghFetch('PUT', path, {
         message: 'Upload gallery photo ' + filename,
         content: base64,
         branch: 'main'
       }).then(function () {
-        updateGalleryEntry(newId, cat, titleEn, titleNp, path);
-      }).catch(showFatalError);
+        updateGalleryEntry(id, cat, titleEn, titleNp, path);
+      }).catch(function (err) {
+        setStatus($('status'), 'Upload failed: ' + err.message, 'error');
+      });
     };
     reader.readAsDataURL(file);
   }
 
   function updateGalleryEntry(id, cat, titleEn, titleNp, src) {
-    var existing = state.gallery.slice();
+    var list = state.gallery.slice();
     var idx = -1;
-    for (var i = 0; i < existing.length; i++) {
-      if (existing[i].id === id) { idx = i; break; }
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) { idx = i; break; }
     }
-    var entry = {
-      id: id,
-      cat: cat,
-      title_en: titleEn,
-      title_np: titleNp,
-      src: src || (idx >= 0 ? existing[idx].src : '')
-    };
-    if (!entry.src) { alert('Photo source missing.'); return; }
-    if (idx >= 0) existing[idx] = entry;
-    else existing.push(entry);
-
-    writeJSONFile('data/gallery.json', existing, state.gallerySha, 'Save gallery photo ' + id)
+    var entry = { id: id, cat: cat, title_en: titleEn, title_np: titleNp, src: src };
+    if (idx >= 0) list[idx] = entry; else list.push(entry);
+    setStatus($('status'), 'Saving gallery…', 'info');
+    writeJSONFile('data/gallery.json', list, state.gallerySha, 'Save gallery photo ' + id)
       .then(function () {
-        log('Gallery saved:', id);
-        state.editingPhotoId = null;
-        var form = document.getElementById('photo-form');
-        if (form) form.reset();
+        closePhotoModal();
+        setStatus($('status'), 'Photo saved.', 'ok');
         loadData();
       })
-      .catch(showFatalError);
+      .catch(function (err) {
+        setStatus($('status'), 'Save failed: ' + err.message, 'error');
+      });
   }
 
-  /* ---------- CSV / SheetJS schedule parsing ---------- */
+  function deletePhoto(id) {
+    if (!confirm('Delete this photo?')) return;
+    var list = state.gallery.filter(function (g) { return g.id !== id; });
+    setStatus($('status'), 'Deleting photo…', 'info');
+    writeJSONFile('data/gallery.json', list, state.gallerySha, 'Delete photo ' + id)
+      .then(function () { setStatus($('status'), 'Photo deleted.', 'ok'); loadData(); })
+      .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
+  }
 
+  /* ----- CSV / SheetJS ----- */
   function loadSheetJS() {
     if (window.XLSX) return Promise.resolve(window.XLSX);
     return new Promise(function (resolve, reject) {
@@ -443,30 +421,29 @@
     var ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'csv') {
       return new Promise(function (resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function () {
-          try {
-            resolve(normalizeSchedule(parseCSV(reader.result)));
-          } catch (e) { reject(e); }
+        var r = new FileReader();
+        r.onload = function () {
+          try { resolve(normalizeSchedule(parseCSV(r.result))); }
+          catch (e) { reject(e); }
         };
-        reader.onerror = function () { reject(new Error('File read error')); };
-        reader.readAsText(file);
+        r.onerror = function () { reject(new Error('File read error')); };
+        r.readAsText(file);
       });
     }
     return loadSheetJS().then(function (XLSX) {
       return new Promise(function (resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function () {
+        var r = new FileReader();
+        r.onload = function () {
           try {
-            var data = new Uint8Array(reader.result);
+            var data = new Uint8Array(r.result);
             var wb = XLSX.read(data, { type: 'array' });
             var ws = wb.Sheets[wb.SheetNames[0]];
             var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
             resolve(normalizeSchedule(rows));
           } catch (e) { reject(e); }
         };
-        reader.onerror = function () { reject(new Error('File read error')); };
-        reader.readAsArrayBuffer(file);
+        r.onerror = function () { reject(new Error('File read error')); };
+        r.readAsArrayBuffer(file);
       });
     });
   }
@@ -475,20 +452,15 @@
     var lines = text.split(/\r?\n/).filter(function (l) { return l.trim() !== ''; });
     var rows = [];
     for (var i = 0; i < lines.length; i++) {
-      var line = lines[i];
-      var cells = [];
-      var cur = '';
-      var inQuotes = false;
+      var line = lines[i], cells = [], cur = '', inQ = false;
       for (var j = 0; j < line.length; j++) {
         var ch = line[j];
         if (ch === '"') {
-          if (inQuotes && line[j + 1] === '"') { cur += '"'; j++; }
-          else inQuotes = !inQuotes;
-        } else if (ch === ',' && !inQuotes) {
+          if (inQ && line[j + 1] === '"') { cur += '"'; j++; }
+          else inQ = !inQ;
+        } else if (ch === ',' && !inQ) {
           cells.push(cur.trim()); cur = '';
-        } else {
-          cur += ch;
-        }
+        } else cur += ch;
       }
       cells.push(cur.trim());
       rows.push(cells);
@@ -498,78 +470,75 @@
 
   function normalizeSchedule(rows) {
     if (!rows || !rows.length) return [];
-    var header = rows[0].map(function (h) { return String(h).trim().toLowerCase(); });
-    var idx = {
-      date: header.indexOf('date'),
-      time: header.indexOf('time'),
-      subject: header.indexOf('subject'),
-      grade: header.indexOf('grade')
-    };
-    if (idx.date === -1 || idx.time === -1 || idx.subject === -1 || idx.grade === -1) {
-      throw new Error('CSV must have columns: Date, Time, Subject, Grade');
+    var h = rows[0].map(function (x) { return String(x).trim().toLowerCase(); });
+    var iD = h.indexOf('date'), iT = h.indexOf('time'),
+        iS = h.indexOf('subject'), iG = h.indexOf('grade');
+    if (iD === -1 || iT === -1 || iS === -1 || iG === -1) {
+      throw new Error('File must have columns: Date, Time, Subject, Grade');
     }
     var out = [];
     for (var i = 1; i < rows.length; i++) {
       var r = rows[i];
       if (!r || r.length < 4) continue;
       out.push({
-        date: String(r[idx.date] || '').trim(),
-        time: String(r[idx.time] || '').trim(),
-        subject: String(r[idx.subject] || '').trim(),
-        grade: String(r[idx.grade] || '').trim()
+        date: String(r[iD] || '').trim(),
+        time: String(r[iT] || '').trim(),
+        subject: String(r[iS] || '').trim(),
+        grade: String(r[iG] || '').trim()
       });
     }
     return out;
   }
 
-  /* ---------- Init ---------- */
+  /* ----- Tabs ----- */
+  function setupTabs() {
+    var tabs = document.querySelectorAll('.admin-tabs button[data-tab]');
+    Array.prototype.forEach.call(tabs, function (btn) {
+      btn.addEventListener('click', function () {
+        Array.prototype.forEach.call(tabs, function (b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var name = btn.getAttribute('data-tab');
+        Array.prototype.forEach.call(document.querySelectorAll('[id^="tab-"]'), function (el) { el.hidden = true; });
+        var panel = document.getElementById('tab-' + name);
+        if (panel) panel.hidden = false;
+      });
+    });
+  }
 
+  /* ----- Init ----- */
   function init() {
-    log('Script starting...');
+    log('Script starting…');
     try {
       var required = ['login-btn', 'repo', 'token', 'dash-view', 'login-view'];
       var missing = required.filter(function (id) { return !document.getElementById(id); });
-      if (missing.length) {
-        log('Missing required elements:', missing);
-      }
+      if (missing.length) log('Missing elements: ' + missing.join(', '));
+      log('DOMContentLoaded — wiring up UI');
 
-      var loginBtn = document.getElementById('login-btn');
-      if (loginBtn) loginBtn.addEventListener('click', signIn);
+      if ($('login-btn')) $('login-btn').addEventListener('click', signIn);
+      if ($('signout-btn')) $('signout-btn').addEventListener('click', signOut);
 
-      var logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) logoutBtn.addEventListener('click', signOut);
+      if ($('notice-form')) $('notice-form').addEventListener('submit', saveNotice);
+      if ($('photo-form')) $('photo-form').addEventListener('submit', savePhoto);
 
-      var noticeForm = document.getElementById('notice-form');
-      if (noticeForm) noticeForm.addEventListener('submit', saveNotice);
+      if ($('add-notice-btn')) $('add-notice-btn').addEventListener('click', openNoticeModal);
+      if ($('add-photo-btn')) $('add-photo-btn').addEventListener('click', openPhotoModal);
+      if ($('notice-cancel')) $('notice-cancel').addEventListener('click', closeNoticeModal);
+      if ($('photo-cancel')) $('photo-cancel').addEventListener('click', closePhotoModal);
 
-      var photoForm = document.getElementById('photo-form');
-      if (photoForm) photoForm.addEventListener('submit', savePhoto);
+      if ($('n-cat')) $('n-cat').addEventListener('change', toggleSchedule);
 
-      var addNoticeBtn = document.getElementById('add-notice-btn');
-      if (addNoticeBtn) {
-        addNoticeBtn.addEventListener('click', function () {
-          state.editingNoticeId = null;
-          var form = document.getElementById('notice-form');
-          if (form) { form.reset(); form.style.display = ''; }
-        });
-      }
+      setupTabs();
 
-      var addPhotoBtn = document.getElementById('add-photo-btn');
-      if (addPhotoBtn) {
-        addPhotoBtn.addEventListener('click', function () {
-          state.editingPhotoId = null;
-          var form = document.getElementById('photo-form');
-          if (form) { form.reset(); form.style.display = ''; }
-        });
-      }
+      log('All event listeners attached. Ready.');
 
       if (isSignedIn()) {
+        log('Found saved credentials — showing dashboard');
         showDash();
       } else {
         showLogin();
       }
     } catch (err) {
-      showFatalError(err);
+      log('Fatal error: ' + err.message);
     }
   }
 
