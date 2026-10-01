@@ -1,659 +1,502 @@
 /* =========================================================
-   main.js — Page logic + letterhead modal + gallery lightbox
+   admin.js — GitHub-backed admin + CSV/Excel exam schedule
    ========================================================= */
-document.addEventListener('DOMContentLoaded', function () {
+(function () {
+  'use strict';
 
-  /* ---------- 1. Inject header & footer ---------- */
-  var activePage = document.body.dataset.page || 'home';
-  var headerMount = document.getElementById('header-mount');
-  var footerMount = document.getElementById('footer-mount');
-  if (headerMount && window.GN_LAYOUT) headerMount.innerHTML = window.GN_LAYOUT.headerHTML(activePage);
-  if (footerMount && window.GN_LAYOUT) footerMount.innerHTML = window.GN_LAYOUT.footerHTML();
+  var LS_TOKEN = 'gn-gh-token';
+  var LS_REPO  = 'gn-gh-repo';
+  var BRANCH   = 'main';
+  var NOTICES_PATH = 'data/notices.json';
+  var GALLERY_PATH = 'data/gallery.json';
+  var SHEETJS_URL  = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
 
-  /* ---------- 2. Language ---------- */
-  applyLanguage(typeof currentLang !== 'undefined' ? currentLang : 'en');
+  /* Allowed category values — kept in sync with the <select> options
+     in admin.html and with the whitelist in main.js / i18n.js. */
+  var NOTICE_CATS  = ['general', 'exam', 'holiday', 'event'];
+  var GALLERY_CATS = ['school', 'classroom', 'lab', 'sports', 'event'];
 
-  /* ---------- 3. Mobile nav ---------- */
-  (function () {
-    var toggle = document.getElementById('nav-toggle');
-    var nav = document.getElementById('primary-nav');
-    var backdrop = document.getElementById('nav-backdrop');
-    if (!toggle || !nav) return;
-    function close() {
-      nav.classList.remove('is-open');
-      toggle.setAttribute('aria-expanded', 'false');
-      document.body.style.overflow = '';
-      if (backdrop) { backdrop.classList.remove('is-open'); backdrop.hidden = true; }
-    }
-    function open() {
-      nav.classList.add('is-open');
-      toggle.setAttribute('aria-expanded', 'true');
-      document.body.style.overflow = 'hidden';
-      if (backdrop) { backdrop.hidden = false; requestAnimationFrame(function () { backdrop.classList.add('is-open'); }); }
-    }
-    toggle.addEventListener('click', function () { nav.classList.contains('is-open') ? close() : open(); });
-    if (backdrop) backdrop.addEventListener('click', close);
-    nav.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', close); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-    window.addEventListener('resize', function () { if (window.innerWidth >= 980) close(); });
-  })();
+  var state = { notices: [], gallery: [], noticesSha: null, gallerySha: null, pendingSchedule: null };
 
-  /* ---------- 4. Language toggle ---------- */
-  (function () {
-    var btn = document.getElementById('lang-toggle');
-    if (!btn) return;
-    btn.addEventListener('click', function () { applyLanguage(currentLang === 'en' ? 'np' : 'en'); });
-  })();
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
 
-  /* ---------- 5. Sticky header ---------- */
-  (function () {
-    var header = document.getElementById('site-header');
-    if (!header) return;
-    function onScroll() { header.classList.toggle('is-stuck', window.scrollY > 8); }
-    window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
-  })();
-
-  /* ---------- 6. Counters ---------- */
-  (function () {
-    var nums = document.querySelectorAll('[data-count]');
-    if (!nums.length) return;
-    function animate(el) {
-      var target = parseInt(el.getAttribute('data-count'), 10) || 0;
-      var start = performance.now();
-      function step(now) {
-        var p = Math.min((now - start) / 1400, 1);
-        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
-        if (p < 1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
-    }
-    if ('IntersectionObserver' in window) {
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) { if (e.isIntersecting) { animate(e.target); io.unobserve(e.target); } });
-      }, { threshold: 0.4 });
-      nums.forEach(function (n) { io.observe(n); });
-    } else nums.forEach(animate);
-  })();
-
-  /* ---------- 7. Reveal on scroll ---------- */
-  (function () {
-    var els = document.querySelectorAll('.reveal');
-    if (!els.length) return;
-    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      els.forEach(function (el) { el.classList.add('is-visible'); }); return;
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); } });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    els.forEach(function (el) { io.observe(el); });
-  })();
-
-  /* ---------- 8. Back to top ---------- */
-  (function () {
-    var btn = document.getElementById('to-top');
-    if (!btn) return;
-    function onScroll() { btn.classList.toggle('is-visible', window.scrollY > 500); }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    btn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    onScroll();
-  })();
-
-  /* ---------- 9. Year ---------- */
-  var y = document.getElementById('year');
-  if (y) y.textContent = new Date().getFullYear();
-
-  /* =========================================================
-     10. Notice + gallery data
-     ========================================================= */
-  var allNotices = [];
-  var allGallery = [];
-  var currentGalleryList = [];
-  var currentGalleryIndex = -1;
-
-  function formatDate(iso, lang) {
-    if (!iso) return '';
-    var d = new Date(iso + 'T00:00:00');
-    var months = {
-      en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
-      np: ['जनवरी','फेब्रुअरी','मार्च','अप्रिल','मे','जुन','जुलाई','अगस्ट','सेप्टेम्बर','अक्टोबर','नोभेम्बर','डिसेम्बर']
+  /* ---------- auth ---------- */
+  function getCreds() {
+    return {
+      token: localStorage.getItem(LS_TOKEN) || '',
+      repo:  localStorage.getItem(LS_REPO)  || ''
     };
-    var m = months[lang] || months.en;
-    return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  function isSignedIn() { var c = getCreds(); return !!(c.token && c.repo); }
+  function signIn(token, repo) {
+    localStorage.setItem(LS_TOKEN, token.trim());
+    localStorage.setItem(LS_REPO, repo.trim().replace(/\.git$/, '').replace(/^https?:\/\/github\.com\//, ''));
+  }
+  function signOut() {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_REPO);
   }
 
-  function categoryLabel(cat, lang) {
-    return ({
-      exam:    (lang === 'np') ? 'परीक्षा'   : 'Examination',
-      holiday: (lang === 'np') ? 'बिदा'      : 'Holiday',
-      event:   (lang === 'np') ? 'कार्यक्रम' : 'Event',
-      general: (lang === 'np') ? 'सामान्य'   : 'General'
-    })[cat] || 'General';
-  }
-
-  /* ---------- Notice card ---------- */
-  function noticeCardHTML(n, lang) {
-    var title   = n['title_' + lang]   || n.title_en   || '';
-    var excerpt = n['excerpt_' + lang] || n.excerpt_en || '';
-    var readMore = (lang === 'np') ? 'थप हेर्नुहोस्' : 'View notice';
-    var hasSchedule = Array.isArray(n.schedule) && n.schedule.length > 0;
-    var badge = hasSchedule
-      ? '<span class="notice-badge"><svg class="ic"><use href="#i-calendar"/></svg>' +
-        ((lang === 'np') ? 'तालिका' : 'Schedule') + '</span>'
-      : '';
-    var safeCat = (['exam','holiday','event','general'].indexOf(n.cat) >= 0) ? n.cat : 'general';
-    var safeId    = escapeHtml(n.id);
-    var safeTitle = escapeHtml(title);
-    var safeExc   = escapeHtml(excerpt);
-    return '' +
-      '<article class="notice-card" data-notice-id="' + safeId + '" tabindex="0" role="button" aria-label="' + safeTitle + '">' +
-        '<div class="notice-meta">' +
-          '<span class="notice-cat notice-cat-' + safeCat + '">' + categoryLabel(safeCat, lang) + '</span>' +
-          '<time datetime="' + escapeHtml(n.date) + '">' + escapeHtml(formatDate(n.date, lang)) + '</time>' +
-          badge +
-        '</div>' +
-        '<h3>' + safeTitle + '</h3>' +
-        '<p>' + safeExc + '</p>' +
-        '<span class="link-arrow"><span>' + readMore + '</span><svg class="ic"><use href="#i-arrow"/></svg></span>' +
-      '</article>';
-  }
-
-  /* ---------- Build matrix-style schedule table ----------
-     The flat CSV format is:  Date, Time, Subject, Grade
-     We pivot it into:  rows = grades, cols = dates, cells = subjects,
-     grouped by exam time (one table per distinct time). */
-  function buildScheduleHTML(schedule, lang) {
-    if (!schedule.length) return '';
-
-    var dateLabel    = (lang === 'np') ? 'मिति'    : 'Date';
-    var classLabel   = (lang === 'np') ? 'कक्षा'   : 'Class';
-    var examTimeLbl  = (lang === 'np') ? 'परीक्षा समय' : 'Exam time';
-
-    /* Group by time → then collect grades + date map */
-    var groupsOrder = [];          // preserves first-seen order of times
-    var groups = {};               // time → { grades: [...], map: grade → date → subject }
-    var allDates = [];             // preserves first-seen order of dates
-
-    schedule.forEach(function (row) {
-      var time  = (row.time  || '').toString().trim();
-      var grade = (row.grade || '').toString().trim();
-      var date  = (row.date  || '').toString().trim();
-      var subj  = (row.subject || '').toString().trim();
-      if (!time && !grade && !date) return;
-
-      if (!groups[time]) {
-        groups[time] = { grades: [], map: {} };
-        groupsOrder.push(time);
-      }
-      if (groups[time].grades.indexOf(grade) === -1) {
-        groups[time].grades.push(grade);
-      }
-      if (!groups[time].map[grade]) groups[time].map[grade] = {};
-      groups[time].map[grade][date] = subj;
-
-      if (allDates.indexOf(date) === -1) allDates.push(date);
+  /* ---------- GitHub REST ---------- */
+  function ghFetch(method, path, body) {
+    var c = getCreds();
+    var url = 'https://api.github.com/repos/' + c.repo + '/contents/' + path + (method === 'GET' ? '?ref=' + BRANCH : '');
+    var headers = {
+      'Authorization': 'Bearer ' + c.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+    if (body) headers['Content-Type'] = 'application/json';
+    return fetch(url, {
+      method: method,
+      headers: headers,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      if (r.status === 404) return null;
+      if (r.status === 401 || r.status === 403) throw new Error('Authentication failed. Check your token and its permissions (Contents: Read and write).');
+      if (r.status === 409) throw new Error('Conflict: the file was modified elsewhere since you loaded it. Reload the admin page and try again.');
+      if (r.status === 422) throw new Error('GitHub rejected the request (422). This usually means the file content or branch name is invalid.');
+      if (!r.ok) return r.text().then(function (txt) { throw new Error('GitHub API ' + r.status + ': ' + txt); });
+      return r.json();
     });
-
-    /* Render each time group as its own table */
-    var html = '';
-    groupsOrder.forEach(function (time) {
-      var group = groups[time];
-
-      /* Keep only dates that appear in this group */
-      var groupDates = allDates.filter(function (d) {
-        return group.grades.some(function (g) { return group.map[g] && group.map[g][d]; });
-      });
-      if (!groupDates.length) return;
-
-      html += '<div class="letterhead-schedule-group">';
-
-      /* Exam-time heading (skip if no time was set) */
-      if (time) {
-        html += '<h4 class="letterhead-schedule-time">' +
-                  escapeHtml(examTimeLbl) + ': ' + escapeHtml(time) +
-                '</h4>';
-      }
-
-      html += '<div class="letterhead-schedule-wrap">';
-      html += '<table class="letterhead-schedule">';
-      html += '<thead><tr>';
-      html += '<th class="col-class">' + escapeHtml(classLabel) + '</th>';
-      groupDates.forEach(function (d) {
-        html += '<th>' + escapeHtml(d) + '</th>';
-      });
-      html += '</tr></thead>';
-      html += '<tbody>';
-      group.grades.forEach(function (g) {
-        html += '<tr>';
-        html += '<td class="col-class">' + escapeHtml(g) + '</td>';
-        groupDates.forEach(function (d) {
-          var subj = (group.map[g] && group.map[g][d]) || '';
-          html += '<td>' + escapeHtml(subj) + '</td>';
-        });
-        html += '</tr>';
-      });
-      html += '</tbody>';
-      html += '</table>';
-      html += '</div>';
-      html += '</div>';
-    });
-
-    return html;
   }
 
-  /* ---------- Letterhead HTML ---------- */
-  function letterheadHTML(n, lang) {
-    var title   = n['title_' + lang]   || n.title_en   || '';
-    var excerpt = n['excerpt_' + lang] || n.excerpt_en || '';
-    var refNum  = 'GN/' + (n.date || '').replace(/-/g, '/');
-    var dateStr = formatDate(n.date, lang);
-    var schedule = Array.isArray(n.schedule) ? n.schedule : [];
+  function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
+  function b64decode(str) { return decodeURIComponent(escape(atob(str))); }
 
-    var scheduleHTML = buildScheduleHTML(schedule, lang);
+  function readJSONFile(path) {
+    return ghFetch('GET', path).then(function (res) {
+      if (!res) return { data: [], sha: null };
+      return { data: JSON.parse(b64decode(res.content) || '[]'), sha: res.sha };
+    });
+  }
 
-    var watermark =
-      '<img class="letterhead-watermark" src="GNlogo.jpg" alt="" aria-hidden="true">';
+  function writeJSONFile(path, data, sha, message) {
+    var body = { message: message, content: b64encode(JSON.stringify(data, null, 2)), branch: BRANCH };
+    if (sha) body.sha = sha;
+    return ghFetch('PUT', path, body);
+  }
 
-    return '' +
-      '<div class="letterhead letterhead-printable">' +
-        watermark +
-        '<header class="letterhead-head">' +
-          '<img class="letterhead-logo" src="GNlogo.jpg" alt="School logo">' +
-          '<div class="letterhead-school">' +
-            '<h1>Gyan Niketan English Secondary School</h1>' +
-            '<p>Badannagar-32, Birgunj, Parsa, Nepal</p>' +
-            '<p>Phone: +977-9800000000 &nbsp;·&nbsp; Email: info@gyanniketan.edu.np</p>' +
-            '<p class="est">Estd. 2003</p>' +
+  function readImageAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = reader.result || '';
+        var idx = result.indexOf(',');
+        resolve({ base64: result.slice(idx + 1), dataUrl: result });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function uploadImageToRepo(folder, filename, base64) {
+    return ghFetch('GET', folder + '/' + filename).then(function (existing) {
+      var body = { message: 'Upload ' + filename, content: base64, branch: BRANCH };
+      if (existing && existing.sha) body.sha = existing.sha;
+      return ghFetch('PUT', folder + '/' + filename, body);
+    });
+  }
+
+  /* ---------- status ---------- */
+  function status(msg, kind) {
+    var el = $('status');
+    if (!el) return;
+    if (!msg) { el.hidden = true; return; }
+    el.hidden = false;
+    el.className = 'admin-status ' + (kind || 'ok');
+    el.textContent = msg;
+    if (kind === 'ok') setTimeout(function () { el.hidden = true; }, 4500);
+  }
+
+  /* ---------- load / navigation ---------- */
+  function showDash() { $('login-view').hidden = true; $('dash-view').hidden = false; loadAll(); }
+  function showLogin() { $('login-view').hidden = false; $('dash-view').hidden = true; }
+
+  function loadAll() {
+    status('Loading data…', 'ok');
+    Promise.all([readJSONFile(NOTICES_PATH), readJSONFile(GALLERY_PATH)])
+      .then(function (res) {
+        state.notices = res[0].data || [];
+        state.noticesSha = res[0].sha;
+        state.gallery = res[1].data || [];
+        state.gallerySha = res[1].sha;
+        state.notices.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+        renderNotices();
+        renderGallery();
+        status('');
+      })
+      .catch(function (err) { status(err.message, 'error'); });
+  }
+
+  /* ---------- notices list ---------- */
+  function renderNotices() {
+    var host = $('notices-list');
+    if (!host) return;
+    if (!state.notices.length) { host.innerHTML = '<p class="hint">No notices yet. Click "+ Add Notice" to create one.</p>'; return; }
+    host.innerHTML = state.notices.map(function (n) {
+      var hasSchedule = Array.isArray(n.schedule) && n.schedule.length > 0;
+      return '<div class="admin-row" data-id="' + esc(n.id) + '">' +
+        '<div>' +
+          '<div class="title">' + esc(n.title_en || n.title_np || '(untitled)') + '</div>' +
+          '<div class="meta">' + esc(n.date) + ' · ' + esc(n.cat) +
+            (hasSchedule ? ' · 📅 ' + n.schedule.length + ' schedule rows' : '') +
           '</div>' +
-          '<div></div>' +
-        '</header>' +
-        '<div class="letterhead-rule"></div>' +
-        '<div class="letterhead-rule thin"></div>' +
-        '<div class="letterhead-ref">' +
-          '<span>Ref: ' + escapeHtml(refNum) + '</span>' +
-          '<span>Date: ' + escapeHtml(dateStr) + '</span>' +
         '</div>' +
-        '<h2 class="letterhead-title">' + escapeHtml(title) + '</h2>' +
-        '<div class="letterhead-body">' +
-          (excerpt ? '<p>' + escapeHtml(excerpt) + '</p>' : '') +
-          scheduleHTML +
+        '<div class="actions">' +
+          '<button type="button" data-act="edit">Edit</button>' +
+          '<button type="button" class="danger" data-act="del">Delete</button>' +
         '</div>' +
-        '<footer class="letterhead-sign">' +
-          '<div class="sign-block">' +
-            '<span class="sign-line"></span>' +
-            '<strong>Class Teacher</strong>' +
-            '<span>Gyan Niketan</span>' +
-          '</div>' +
-          '<div class="sign-block">' +
-            '<span class="sign-line"></span>' +
-            '<strong>Mr. Ram Prasad Yadav</strong>' +
-            '<span>Principal</span>' +
-          '</div>' +
-        '</footer>' +
-        '<p class="letterhead-footnote">' +
-          'This is a computer-generated notice from Gyan Niketan English Secondary School. ' +
-          'For queries, please contact the school office during working hours.' +
-        '</p>' +
       '</div>';
+    }).join('');
   }
 
-  function escapeHtml(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
-  }
-
-  /* =========================================================
-     PRINT SETUP — paper size (auto A5/A4) + orientation
-     ========================================================= */
-  var paperSizeMode   = 'auto';
-  var paperOrientation = 'portrait';
-  var detectedSize    = 'A4';
-
-  function detectAndSetPaperSize() {
-    var letterhead = document.querySelector('#gn-notice-content .letterhead');
-    if (!letterhead) return;
-    var h = letterhead.getBoundingClientRect().height;
-    detectedSize = (h <= 600) ? 'A5' : 'A4';
-    applyPageSettings();
-    updateSizeButton();
-  }
-
-  function applyPageSettings() {
-    var size = (paperSizeMode === 'auto') ? detectedSize : paperSizeMode;
-    var orientation = paperOrientation;
-
-    var margin;
-    if (size === 'A5') {
-      margin = (orientation === 'landscape') ? '8mm 10mm' : '10mm 12mm';
-    } else {
-      margin = (orientation === 'landscape') ? '12mm 15mm' : '15mm 12mm';
-    }
-
-    var styleEl = document.getElementById('gn-print-orientation-style');
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = 'gn-print-orientation-style';
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent =
-      '@media print { @page { size: ' + size + ' ' + orientation + '; margin: ' + margin + '; } }';
-  }
-
-  function updateSizeButton() {
-    var modal = document.getElementById('gn-notice-modal');
-    var btn = modal && modal.querySelector('#gn-size-btn');
-    if (!btn) return;
-    if (paperSizeMode === 'auto') {
-      btn.textContent = 'Paper: Auto (' + detectedSize + ')';
-      btn.setAttribute('aria-pressed', 'false');
-    } else {
-      btn.textContent = 'Paper: ' + paperSizeMode;
-      btn.setAttribute('aria-pressed', 'true');
-    }
-  }
-
-  function cyclePaperSize() {
-    if (paperSizeMode === 'auto') paperSizeMode = 'A5';
-    else if (paperSizeMode === 'A5') paperSizeMode = 'A4';
-    else paperSizeMode = 'auto';
-    applyPageSettings();
-    updateSizeButton();
-  }
-
-  function cycleOrientation() {
-    paperOrientation = (paperOrientation === 'portrait') ? 'landscape' : 'portrait';
-    var modal = document.getElementById('gn-notice-modal');
-    var btn = modal && modal.querySelector('#gn-orientation-btn');
-    if (btn) {
-      btn.textContent = (paperOrientation === 'portrait') ? 'Landscape' : 'Portrait';
-      btn.setAttribute('aria-pressed', paperOrientation === 'landscape' ? 'true' : 'false');
-    }
-    applyPageSettings();
-  }
-
-  /* ---------- Notice modal ---------- */
-  function ensureNoticeModal() {
-    var existing = document.getElementById('gn-notice-modal');
-    if (existing) return existing;
-    var div = document.createElement('div');
-    div.className = 'gn-modal';
-    div.id = 'gn-notice-modal';
-    div.hidden = true;
-    div.innerHTML =
-      '<div class="gn-modal-backdrop" data-close="1"></div>' +
-      '<div class="gn-modal-body" role="dialog" aria-modal="true" aria-labelledby="gn-notice-title">' +
-        '<button type="button" class="gn-modal-close" data-close="1" aria-label="Close">' +
-          '<svg class="ic"><use href="#i-close"/></svg>' +
-        '</button>' +
-        '<div class="gn-modal-actions">' +
-          '<button type="button" id="gn-size-btn" aria-pressed="false">Paper: Auto</button>' +
-          '<button type="button" id="gn-orientation-btn" data-orientation="portrait" aria-pressed="false">Landscape</button>' +
-          '<button type="button" id="gn-print-btn">' +
-            '<svg class="ic"><use href="#i-print"/></svg><span id="gn-print-label">Print</span>' +
-          '</button>' +
-        '</div>' +
-        '<div class="gn-modal-content" id="gn-notice-content"></div>' +
-      '</div>';
-    document.body.appendChild(div);
-
-    div.addEventListener('click', function (e) {
-      if (e.target.closest('[data-close="1"]')) closeNoticeModal();
-    });
-    div.querySelector('#gn-print-btn').addEventListener('click', function () { window.print(); });
-    div.querySelector('#gn-orientation-btn').addEventListener('click', cycleOrientation);
-    div.querySelector('#gn-size-btn').addEventListener('click', cyclePaperSize);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !div.hidden) closeNoticeModal();
-    });
-    return div;
-  }
-
+  /* ---------- notice modal ---------- */
   function openNoticeModal(notice) {
-    var modal = ensureNoticeModal();
-    var content = modal.querySelector('#gn-notice-content');
-    var printLabel = modal.querySelector('#gn-print-label');
-    if (printLabel) printLabel.textContent = (currentLang === 'np') ? 'प्रिन्ट' : 'Print';
-
-    paperSizeMode = 'auto';
-    paperOrientation = 'portrait';
-    var orientBtn = modal.querySelector('#gn-orientation-btn');
-    if (orientBtn) {
-      orientBtn.textContent = 'Landscape';
-      orientBtn.setAttribute('aria-pressed', 'false');
-    }
-    var sizeBtn = modal.querySelector('#gn-size-btn');
-    if (sizeBtn) {
-      sizeBtn.textContent = 'Paper: Auto';
-      sizeBtn.setAttribute('aria-pressed', 'false');
-    }
-
-    content.innerHTML = letterheadHTML(notice, currentLang);
-    modal.hidden = false;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.classList.add('gn-printing-notice');
-    applyPageSettings();
-
-    var body = modal.querySelector('.gn-modal-content');
-    if (body) body.scrollTop = 0;
-
-    function measure() { detectAndSetPaperSize(); }
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(measure);
-    }
-    requestAnimationFrame(measure);
+    $('notice-modal-title').textContent = notice ? 'Edit Notice' : 'Add Notice';
+    $('n-id').value = notice ? notice.id : '';
+    $('n-date').value = notice ? notice.date : new Date().toISOString().slice(0, 10);
+    $('n-cat').value = notice ? notice.cat : 'general';
+    $('n-title-en').value = notice ? (notice.title_en || '') : '';
+    $('n-title-np').value = notice ? (notice.title_np || '') : '';
+    $('n-ex-en').value = notice ? (notice.excerpt_en || '') : '';
+    $('n-ex-np').value = notice ? (notice.excerpt_np || '') : '';
+    state.pendingSchedule = notice && Array.isArray(notice.schedule) ? notice.schedule.slice() : null;
+    updateScheduleUI();
+    $('notice-modal').hidden = false;
   }
-
   function closeNoticeModal() {
-    var modal = document.getElementById('gn-notice-modal');
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.style.overflow = '';
-    document.documentElement.classList.remove('gn-printing-notice');
-    var styleEl = document.getElementById('gn-print-orientation-style');
-    if (styleEl) styleEl.remove();
+    $('notice-modal').hidden = true;
+    state.pendingSchedule = null;
+    var fi = $('n-schedule-file'); if (fi) fi.value = '';
+    var prev = $('n-schedule-preview'); if (prev) prev.innerHTML = '';
   }
 
-  /* ---------- Gallery lightbox ---------- */
-  function ensureLightbox() {
-    var existing = document.getElementById('gn-lightbox');
-    if (existing) return existing;
-    var div = document.createElement('div');
-    div.className = 'gn-lightbox';
-    div.id = 'gn-lightbox';
-    div.hidden = true;
-    div.innerHTML =
-      '<div class="gn-lightbox-backdrop" data-close="1"></div>' +
-      '<button type="button" class="gn-lb-close" data-close="1" aria-label="Close">' +
-        '<svg class="ic"><use href="#i-close"/></svg>' +
-      '</button>' +
-      '<button type="button" class="gn-lb-prev" aria-label="Previous">' +
-        '<svg class="ic"><use href="#i-chev-left"/></svg>' +
-      '</button>' +
-      '<button type="button" class="gn-lb-next" aria-label="Next">' +
-        '<svg class="ic"><use href="#i-chev-right"/></svg>' +
-      '</button>' +
-      '<div class="gn-lightbox-content">' +
-        '<div class="gn-lb-image-wrap"><img id="gn-lb-img" alt=""></div>' +
-        '<p class="gn-lb-caption" id="gn-lb-caption"></p>' +
-        '<span class="gn-lb-counter" id="gn-lb-counter"></span>' +
+  function updateScheduleUI() {
+    var cat = $('n-cat').value;
+    var isExam = (cat === 'exam');
+    var wrap = $('n-schedule-wrap');
+    if (wrap) wrap.hidden = !isExam;
+    var prev = $('n-schedule-preview');
+    if (!prev) return;
+    if (!isExam) { prev.innerHTML = ''; return; }
+    if (!state.pendingSchedule || !state.pendingSchedule.length) {
+      prev.innerHTML = '<p class="hint" style="margin:0;">No schedule attached yet. Upload a CSV or Excel file below.</p>';
+      return;
+    }
+    var rows = state.pendingSchedule;
+    var head = '<tr><th>Date</th><th>Time</th><th>Subject</th><th>Grade</th></tr>';
+    var body = rows.map(function (r) {
+      return '<tr><td>' + esc(r.date || '') + '</td><td>' + esc(r.time || '') + '</td>' +
+             '<td>' + esc(r.subject || '') + '</td><td>' + esc(r.grade || '') + '</td></tr>';
+    }).join('');
+    prev.innerHTML =
+      '<div style="margin-top:10px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
+          '<strong style="font-size:.85rem;">' + rows.length + ' schedule rows attached</strong>' +
+          '<button type="button" id="clear-schedule-btn" style="font-size:.8rem; color:#b91c1c; background:transparent; border:0; cursor:pointer;">Remove</button>' +
+        '</div>' +
+        '<div style="max-height:220px; overflow:auto; border:1px solid var(--gray-200); border-radius:8px;">' +
+          '<table class="info-table" style="font-size:.82rem;"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' +
+        '</div>' +
       '</div>';
-    document.body.appendChild(div);
-
-    div.addEventListener('click', function (e) {
-      if (e.target.closest('[data-close="1"]')) closeLightbox();
+    var clearBtn = $('clear-schedule-btn');
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      state.pendingSchedule = null;
+      var fi = $('n-schedule-file'); if (fi) fi.value = '';
+      updateScheduleUI();
     });
-    div.querySelector('.gn-lb-prev').addEventListener('click', function (e) { e.stopPropagation(); showGalleryAt(currentGalleryIndex - 1); });
-    div.querySelector('.gn-lb-next').addEventListener('click', function (e) { e.stopPropagation(); showGalleryAt(currentGalleryIndex + 1); });
+  }
 
-    document.addEventListener('keydown', function (e) {
-      if (div.hidden) return;
-      if (e.key === 'Escape') closeLightbox();
-      else if (e.key === 'ArrowLeft')  showGalleryAt(currentGalleryIndex - 1);
-      else if (e.key === 'ArrowRight') showGalleryAt(currentGalleryIndex + 1);
+  /* ---------- CSV / Excel parsing ---------- */
+  function loadSheetJS() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = SHEETJS_URL;
+      s.onload = function () { resolve(window.XLSX); };
+      s.onerror = function () { reject(new Error('Could not load spreadsheet parser. Check your internet connection.')); };
+      document.head.appendChild(s);
     });
-    return div;
   }
 
-  function openLightbox(list, index) {
-    currentGalleryList = list;
-    ensureLightbox();
-    showGalleryAt(index);
-    document.body.style.overflow = 'hidden';
-  }
-  function showGalleryAt(idx) {
-    if (!currentGalleryList.length) return;
-    if (idx < 0) idx = currentGalleryList.length - 1;
-    if (idx >= currentGalleryList.length) idx = 0;
-    currentGalleryIndex = idx;
-    var item = currentGalleryList[idx];
-    var box = document.getElementById('gn-lightbox');
-    if (!box) return;
-    box.hidden = false;
-    var img = box.querySelector('#gn-lb-img');
-    var cap = box.querySelector('#gn-lb-caption');
-    var cnt = box.querySelector('#gn-lb-counter');
-    img.src = item.src;
-    img.alt = item['title_' + currentLang] || item.title_en || '';
-    cap.textContent = item['title_' + currentLang] || item.title_en || '';
-    cnt.textContent = (idx + 1) + ' / ' + currentGalleryList.length;
-  }
-  function closeLightbox() {
-    var box = document.getElementById('gn-lightbox');
-    if (!box) return;
-    box.hidden = true;
-    document.body.style.overflow = '';
-  }
-
-  /* ---------- Render helpers ---------- */
-  var homeList = document.getElementById('notice-list');
-  var noticesGrid = document.getElementById('notices-grid');
-  var galleryGrid = document.getElementById('gallery-grid');
-
-  function renderHomeNotices() {
-    if (!homeList) return;
-    var limit = parseInt(homeList.dataset.limit, 10) || 4;
-    homeList.innerHTML = allNotices.slice(0, limit).map(function (n) { return noticeCardHTML(n, currentLang); }).join('')
-      || '<p class="notices-empty">—</p>';
-  }
-
-  function renderNoticesPage() {
-    if (!noticesGrid) return;
-    var searchInput = document.getElementById('notices-search');
-    var filterBtns = document.querySelectorAll('[data-notice-filter]');
-    var activeFilter = 'all';
-    var query = '';
-
-    function draw() {
-      var q = query.trim().toLowerCase();
-      var list = allNotices.filter(function (n) {
-        if (activeFilter !== 'all' && n.cat !== activeFilter) return false;
-        if (!q) return true;
-        var blob = [n.title_en, n.title_np, n.excerpt_en, n.excerpt_np].join(' ').toLowerCase();
-        return blob.indexOf(q) !== -1;
-      });
-      noticesGrid.innerHTML = list.length
-        ? list.map(function (n) { return noticeCardHTML(n, currentLang); }).join('')
-        : '<p class="notices-empty">' + ((currentLang === 'np') ? 'कुनै सूचना भेटिएन।' : 'No notices match your search.') + '</p>';
-    }
-    filterBtns.forEach(function (b) {
-      b.addEventListener('click', function () {
-        filterBtns.forEach(function (x) { x.classList.remove('is-active'); });
-        b.classList.add('is-active');
-        activeFilter = b.dataset.noticeFilter;
-        draw();
-      });
-    });
-    if (searchInput) searchInput.addEventListener('input', function () { query = searchInput.value; draw(); });
-    draw();
-    document.addEventListener('languagechange', draw);
-  }
-
-  var currentGalleryFilter = 'all';
-  function renderGallery() {
-    if (!galleryGrid) return;
-    var filterBtns = document.querySelectorAll('[data-gallery-filter]');
-    filterBtns.forEach(function (b) {
-      b.addEventListener('click', function () {
-        filterBtns.forEach(function (x) { x.classList.remove('is-active'); });
-        b.classList.add('is-active');
-        currentGalleryFilter = b.dataset.galleryFilter;
-        drawGallery();
-      });
-    });
-    function drawGallery() {
-      var list = allGallery.filter(function (g) { return currentGalleryFilter === 'all' || g.cat === currentGalleryFilter; });
-      galleryGrid.innerHTML = list.length ? list.map(function (g) {
-        var title = g['title_' + currentLang] || g.title_en || '';
-        return '<figure class="gallery-item" data-gallery-id="' + g.id + '" tabindex="0" role="button" aria-label="' + escapeHtml(title) + '">' +
-          '<div class="gallery-thumb">' +
-            '<img src="' + g.src + '" alt="' + escapeHtml(title) + '" loading="lazy">' +
-          '</div>' +
-          '<figcaption>' + escapeHtml(title) + '</figcaption>' +
-        '</figure>';
-      }).join('') : '<p class="gallery-empty">' + t('gal.empty') + '</p>';
-    }
-    drawGallery();
-    document.addEventListener('languagechange', drawGallery);
-  }
-
-  /* ---------- Delegated click handlers ---------- */
-  document.addEventListener('click', function (e) {
-    var noticeEl = e.target.closest('[data-notice-id]');
-    if (noticeEl) {
-      var id = noticeEl.dataset.noticeId;
-      var notice = allNotices.find(function (n) { return n.id === id; });
-      if (notice) { openNoticeModal(notice); return; }
-    }
-    var galEl = e.target.closest('[data-gallery-id]');
-    if (galEl) {
-      var gid = galEl.dataset.galleryId;
-      var list = allGallery.filter(function (g) { return currentGalleryFilter === 'all' || g.cat === currentGalleryFilter; });
-      var idx = list.findIndex(function (g) { return g.id === gid; });
-      if (idx >= 0) openLightbox(list, idx);
-    }
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      var el = document.activeElement;
-      if (el && (el.dataset.noticeId || el.dataset.galleryId)) {
-        e.preventDefault(); el.click();
+  function parseCSV(text) {
+    var rows = [], row = [], cur = '', inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQ) {
+        if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+        else if (c === '\r') { /* skip */ }
+        else cur += c;
       }
     }
-  });
+    if (cur.length || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (c) { return String(c).trim(); }); });
+  }
 
-  /* ---------- Data load ---------- */
-  if (window.loadGNData) {
-    window.loadGNData().then(function (data) {
-      allNotices = (data.notices || []).slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-      allGallery = data.gallery || [];
-      renderHomeNotices();
-      renderNoticesPage();
-      renderGallery();
-      document.addEventListener('languagechange', renderHomeNotices);
+  function normaliseHeader(h) {
+    var s = String(h || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+    if (s.indexOf('date') !== -1) return 'date';
+    if (s.indexOf('time') !== -1) return 'time';
+    if (s.indexOf('subject') !== -1 || s.indexOf('paper') !== -1) return 'subject';
+    if (s.indexOf('grade') !== -1 || s.indexOf('class') !== -1) return 'grade';
+    return null;
+  }
+
+  function normalizeSchedule(rows) {
+    if (!rows.length) return [];
+    var header = rows[0];
+    var mapped = header.map(normaliseHeader);
+    var hasHeader = mapped.some(function (m) { return m; });
+    var startIdx = hasHeader ? 1 : 0;
+    var cols = hasHeader ? mapped : ['date', 'time', 'subject', 'grade'];
+    var out = [];
+    for (var i = startIdx; i < rows.length; i++) {
+      var r = rows[i];
+      var obj = { date: '', time: '', subject: '', grade: '' };
+      for (var j = 0; j < r.length; j++) {
+        var key = cols[j];
+        if (key) obj[key] = String(r[j] || '').trim();
+      }
+      if (obj.date || obj.subject) out.push(obj);
+    }
+    return out;
+  }
+
+  function parseScheduleFile(file) {
+    var name = file.name.toLowerCase();
+    if (name.endsWith('.csv') || name.endsWith('.txt')) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { try { resolve(normalizeSchedule(parseCSV(String(r.result || '')))); } catch (e) { reject(e); } };
+        r.onerror = function () { reject(new Error('Could not read the file.')); };
+        r.readAsText(file);
+      });
+    }
+    // Excel
+    return loadSheetJS().then(function (XLSX) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () {
+          try {
+            var wb = XLSX.read(new Uint8Array(r.result), { type: 'array' });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+            resolve(normalizeSchedule(rows.filter(function (row) { return row.some(function (c) { return String(c).trim(); }); })));
+          } catch (e) { reject(new Error('Could not parse the Excel file.')); }
+        };
+        r.onerror = function () { reject(new Error('Could not read the file.')); };
+        r.readAsArrayBuffer(file);
+      });
     });
   }
 
-  /* ---------- Forms ---------- */
-  document.querySelectorAll('[data-form]').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var successEl = form.querySelector('.form-success');
-      var submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '...'; }
-      setTimeout(function () {
-        if (successEl) {
-          successEl.textContent = (currentLang === 'np')
-            ? ((form.dataset.form === 'admission') ? 'धन्यवाद! तपाईंको जिज्ञासा प्राप्त भयो। हामी चाँडै सम्पर्क गर्नेछौं।' : 'धन्यवाद! तपाईंको सन्देश पठाइयो। हामी चाँडै सम्पर्क गर्नेछौं।')
-            : ((form.dataset.form === 'admission') ? 'Thank you! Your enquiry has been received. We will contact you soon.' : 'Thank you! Your message has been sent. We will be in touch soon.');
-          successEl.hidden = false;
-          successEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        form.reset();
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = (form.dataset.form === 'admission') ? t('admis.form.submit') : t('cont.form.submit');
-        }
-      }, 600);
+  /* ---------- save notice ---------- */
+  function saveNotice(e) {
+    e.preventDefault();
+    var id = $('n-id').value || ('n-' + Date.now());
+    var catRaw = $('n-cat').value;
+    var cat = (NOTICE_CATS.indexOf(catRaw) >= 0) ? catRaw : 'general';
+    var entry = {
+      id: id,
+      date: $('n-date').value,
+      cat: cat,
+      title_en: $('n-title-en').value.trim(),
+      title_np: $('n-title-np').value.trim(),
+      excerpt_en: $('n-ex-en').value.trim(),
+      excerpt_np: $('n-ex-np').value.trim()
+    };
+    if (cat === 'exam' && state.pendingSchedule && state.pendingSchedule.length) {
+      entry.schedule = state.pendingSchedule;
+    }
+    var idx = state.notices.findIndex(function (n) { return n.id === id; });
+    if (idx >= 0) state.notices[idx] = entry; else state.notices.unshift(entry);
+    state.notices.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+    status('Publishing notice…', 'ok');
+    writeJSONFile(NOTICES_PATH, state.notices, state.noticesSha, (idx >= 0 ? 'Update notice: ' : 'Add notice: ') + entry.title_en)
+      .then(function (res) {
+        state.noticesSha = res.content.sha;
+        renderNotices();
+        closeNoticeModal();
+        status('Notice published. The live site will update in ~1 minute.', 'ok');
+      })
+      .catch(function (err) { status(err.message, 'error'); });
+  }
+
+  function deleteNotice(id) {
+    if (!confirm('Delete this notice? This will be published immediately.')) return;
+    var idx = state.notices.findIndex(function (n) { return n.id === id; });
+    if (idx < 0) return;
+    var removed = state.notices[idx];
+    state.notices.splice(idx, 1);
+    status('Deleting…', 'ok');
+    writeJSONFile(NOTICES_PATH, state.notices, state.noticesSha, 'Delete notice: ' + removed.title_en)
+      .then(function (res) { state.noticesSha = res.content.sha; renderNotices(); status('Notice deleted.', 'ok'); })
+      .catch(function (err) { state.notices.splice(idx, 0, removed); renderNotices(); status(err.message, 'error'); });
+  }
+
+  /* ---------- gallery ---------- */
+  function renderGallery() {
+    var host = $('gallery-list');
+    if (!host) return;
+    if (!state.gallery.length) { host.innerHTML = '<p class="hint">No photos yet. Click "+ Upload Photo".</p>'; return; }
+    host.innerHTML = state.gallery.map(function (g) {
+      return '<div class="thumb" data-id="' + esc(g.id) + '">' +
+        '<img src="' + esc(g.src) + '" alt="">' +
+        '<div class="cap">' +
+          '<span>' + esc(g.title_en || '') + '</span>' +
+          '<span>' +
+            '<button type="button" data-act="edit">Edit</button>' +
+            ' <button type="button" data-act="del">Delete</button>' +
+          '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function openPhotoModal(item) {
+    $('photo-modal-title').textContent = item ? 'Edit Photo' : 'Upload Photo';
+    $('p-id').value = item ? item.id : '';
+    $('p-existing-src').value = item ? item.src : '';
+    $('p-cat').value = item ? item.cat : 'school';
+    $('p-title-en').value = item ? (item.title_en || '') : '';
+    $('p-title-np').value = item ? (item.title_np || '') : '';
+    $('p-file').value = '';
+    $('p-file-hint').textContent = item ? '(leave blank to keep existing photo)' : '(JPG/PNG, max ~2 MB)';
+    $('photo-modal').hidden = false;
+  }
+  function closePhotoModal() { $('photo-modal').hidden = true; }
+
+  function slugify(str) {
+    return String(str || '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'photo';
+  }
+
+  function savePhoto(e) {
+    e.preventDefault();
+    var id = $('p-id').value || ('g-' + Date.now());
+    var existingSrc = $('p-existing-src').value;
+    var catRaw = $('p-cat').value;
+    var cat = (GALLERY_CATS.indexOf(catRaw) >= 0) ? catRaw : 'school';
+    var fileInput = $('p-file');
+    var file = fileInput.files && fileInput.files[0];
+
+    function finish(src) {
+      var entry = {
+        id: id,
+        cat: cat,
+        title_en: $('p-title-en').value.trim(),
+        title_np: $('p-title-np').value.trim(),
+        src: src
+      };
+      var idx = state.gallery.findIndex(function (g) { return g.id === id; });
+      if (idx >= 0) state.gallery[idx] = entry; else state.gallery.push(entry);
+
+      writeJSONFile(GALLERY_PATH, state.gallery, state.gallerySha, (idx >= 0 ? 'Update photo: ' : 'Add photo: ') + entry.title_en)
+        .then(function (res) { state.gallerySha = res.content.sha; renderGallery(); closePhotoModal(); status('Photo published. The live site will update in ~1 minute.', 'ok'); })
+        .catch(function (err) { status(err.message, 'error'); });
+    }
+
+    if (!file) {
+      if (!existingSrc) { status('Please choose a photo file.', 'error'); return; }
+      finish(existingSrc);
+      return;
+    }
+    if (file.size > 2.5 * 1024 * 1024) { status('Photo is too large. Please compress it below 2 MB.', 'error'); return; }
+
+    var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    var filename = slugify($('p-title-en').value) + '-' + Date.now() + '.' + ext;
+
+    status('Uploading photo…', 'ok');
+    readImageAsBase64(file)
+      .then(function (b) { return uploadImageToRepo('assets/gallery', filename, b.base64); })
+      .then(function () { finish('assets/gallery/' + filename); })
+      .catch(function (err) { status('Upload failed: ' + err.message, 'error'); });
+  }
+
+  function deletePhoto(id) {
+    if (!confirm('Remove this photo from the gallery? (The image file will stay in the repo.)')) return;
+    var idx = state.gallery.findIndex(function (g) { return g.id === id; });
+    if (idx < 0) return;
+    var removed = state.gallery[idx];
+    state.gallery.splice(idx, 1);
+    status('Deleting…', 'ok');
+    writeJSONFile(GALLERY_PATH, state.gallery, state.gallerySha, 'Delete photo: ' + removed.title_en)
+      .then(function (res) { state.gallerySha = res.content.sha; renderGallery(); status('Photo removed from gallery.', 'ok'); })
+      .catch(function (err) { state.gallery.splice(idx, 0, removed); renderGallery(); status(err.message, 'error'); });
+  }
+
+  /* ---------- wire up ---------- */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (isSignedIn()) showDash(); else showLogin();
+
+    $('login-btn').addEventListener('click', function () {
+      var token = $('token').value.trim();
+      var repo  = $('repo').value.trim();
+      if (!token || !repo) { $('login-status').hidden = false; $('login-status').className = 'admin-status error'; $('login-status').textContent = 'Please fill both fields.'; return; }
+      signIn(token, repo);
+      showDash();
+    });
+    $('signout-btn').addEventListener('click', function () { signOut(); showLogin(); $('token').value = ''; });
+
+    // tabs
+    document.querySelectorAll('.admin-tabs button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.admin-tabs button').forEach(function (x) { x.classList.remove('is-active'); });
+        b.classList.add('is-active');
+        $('tab-notices').hidden = (b.dataset.tab !== 'notices');
+        $('tab-gallery').hidden = (b.dataset.tab !== 'gallery');
+      });
+    });
+
+    // notices
+    $('add-notice-btn').addEventListener('click', function () { openNoticeModal(null); });
+    $('notice-cancel').addEventListener('click', closeNoticeModal);
+    $('notice-form').addEventListener('submit', saveNotice);
+    $('n-cat').addEventListener('change', updateScheduleUI);
+
+    var fileInput = $('n-schedule-file');
+    if (fileInput) {
+      fileInput.addEventListener('change', function () {
+        var f = fileInput.files && fileInput.files[0];
+        if (!f) return;
+        status('Reading schedule file…', 'ok');
+        parseScheduleFile(f)
+          .then(function (rows) {
+            if (!rows.length) throw new Error('No rows found. Expected columns: Date, Time, Subject, Grade.');
+            state.pendingSchedule = rows;
+            updateScheduleUI();
+            status('Loaded ' + rows.length + ' schedule rows.', 'ok');
+          })
+          .catch(function (err) { status(err.message, 'error'); });
+      });
+    }
+
+    $('notices-list').addEventListener('click', function (e) {
+      var btn = e.target.closest('button'); if (!btn) return;
+      var row = e.target.closest('.admin-row'); if (!row) return;
+      var id = row.dataset.id;
+      if (btn.dataset.act === 'edit') openNoticeModal(state.notices.find(function (n) { return n.id === id; }));
+      if (btn.dataset.act === 'del')  deleteNotice(id);
+    });
+
+    // gallery
+    $('add-photo-btn').addEventListener('click', function () { openPhotoModal(null); });
+    $('photo-cancel').addEventListener('click', closePhotoModal);
+    $('photo-form').addEventListener('submit', savePhoto);
+    $('gallery-list').addEventListener('click', function (e) {
+      var btn = e.target.closest('button'); if (!btn) return;
+      var thumb = e.target.closest('.thumb'); if (!thumb) return;
+      var id = thumb.dataset.id;
+      if (btn.dataset.act === 'edit') openPhotoModal(state.gallery.find(function (g) { return g.id === id; }));
+      if (btn.dataset.act === 'del')  deletePhoto(id);
     });
   });
-});
+})();
