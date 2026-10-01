@@ -1,7 +1,10 @@
 /**
  * admin.js — Gyan Niketan admin panel
  * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
- * Supports both normal and transposed (headers-in-column) CSV layouts.
+ * Schedule parser supports 3 layouts:
+ *   A) header row with field names: Date | Time | Subject | Grade
+ *   B) transposed: field names in column 0, data across columns
+ *   C) matrix: column 0 = Class/Grade, other columns = dates, cells = subjects
  */
 (function () {
   'use strict';
@@ -413,10 +416,7 @@
   }
 
   /* ============================================================
-     CSV / Excel schedule parser
-     — detects both orientations:
-       A) header row across the top (Date, Time, Subject, Grade)
-       B) header labels stacked in column 0 (field-per-row / transposed)
+     CSV / Excel schedule parser — three layouts
      ============================================================ */
 
   function loadSheetJS() {
@@ -461,35 +461,26 @@
     });
   }
 
-  /* RFC-4180-ish CSV parser. Handles quotes, embedded commas, embedded newlines, CRLF, BOM. */
+  /* RFC-4180-ish CSV parser */
   function parseCSV(text) {
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    var rows = [];
-    var cur = [];
-    var field = '';
-    var inQ = false;
+    var rows = [], cur = [], field = '', inQ = false;
     for (var i = 0; i < text.length; i++) {
       var ch = text[i];
       if (inQ) {
         if (ch === '"') {
           if (text[i + 1] === '"') { field += '"'; i++; }
-          else { inQ = false; }
-        } else { field += ch; }
+          else inQ = false;
+        } else field += ch;
       } else {
-        if (ch === '"') { inQ = true; }
+        if (ch === '"') inQ = true;
         else if (ch === ',') { cur.push(field); field = ''; }
         else if (ch === '\r') { /* skip */ }
-        else if (ch === '\n') {
-          cur.push(field);
-          rows.push(cur);
-          cur = []; field = '';
-        } else { field += ch; }
+        else if (ch === '\n') { cur.push(field); rows.push(cur); cur = []; field = ''; }
+        else field += ch;
       }
     }
-    if (field.length || cur.length) {
-      cur.push(field);
-      rows.push(cur);
-    }
+    if (field.length || cur.length) { cur.push(field); rows.push(cur); }
     return rows;
   }
 
@@ -505,21 +496,17 @@
     date:    ['date','examdate','examday','miti','datebs','datead','datebsad'],
     time:    ['time','examtime','samaya','shift','slot'],
     subject: ['subject','subjectname','paper','sub','vishay','visay','topic'],
-    grade:   ['grade','class','classname','level','kaksha','std','standard']
+    grade:   ['grade','class','classname','level','kaksha','std','standard','section']
   };
 
   function findCol(headers, aliases) {
     var i, j;
     for (i = 0; i < headers.length; i++) {
-      for (j = 0; j < aliases.length; j++) {
-        if (headers[i] === aliases[j]) return i;
-      }
+      for (j = 0; j < aliases.length; j++) if (headers[i] === aliases[j]) return i;
     }
     for (i = 0; i < headers.length; i++) {
       if (!headers[i]) continue;
-      for (j = 0; j < aliases.length; j++) {
-        if (headers[i].indexOf(aliases[j]) !== -1) return i;
-      }
+      for (j = 0; j < aliases.length; j++) if (headers[i].indexOf(aliases[j]) !== -1) return i;
     }
     return -1;
   }
@@ -528,9 +515,7 @@
     var keys = Object.keys(FIELD_ALIASES);
     for (var i = 0; i < keys.length; i++) {
       var list = FIELD_ALIASES[keys[i]];
-      for (var j = 0; j < list.length; j++) {
-        if (normalized === list[j]) return keys[i];
-      }
+      for (var j = 0; j < list.length; j++) if (normalized === list[j]) return keys[i];
     }
     return null;
   }
@@ -544,18 +529,24 @@
     return String(v == null ? '' : v).trim();
   }
 
+  /* Looks like a date: 2083/06/22, 2083-06-22, 2083.06.22, 24/04/2026, etc. */
+  function looksLikeDate(v) {
+    if (v instanceof Date) return true;
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return false;
+    return /^\d{2,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/.test(s);
+  }
+
   function normalizeSchedule(rows) {
     if (!rows || !rows.length) return [];
     var a = tryRowHeaders(rows);    if (a) return a;
     var b = tryColumnHeaders(rows); if (b) return b;
-
-    var preview = rows.slice(0, 4).map(function (r) {
-      return (r || []).join(' | ');
-    }).join('  //  ');
-    throw new Error('Could not detect header row or column. First rows: ' + preview);
+    var c = tryMatrix(rows);        if (c) return c;
+    var preview = rows.slice(0, 4).map(function (r) { return (r || []).join(' | '); }).join('  //  ');
+    throw new Error('Could not detect a known layout. First rows: ' + preview);
   }
 
-  /* Orientation A — header row across the top */
+  /* --- Layout A: header row with field names --- */
   function tryRowHeaders(rows) {
     for (var r = 0; r < Math.min(rows.length, 5); r++) {
       var headers = (rows[r] || []).map(normHeader);
@@ -579,15 +570,14 @@
         out.push({ date: date, time: time, subject: subject, grade: grade });
       }
       if (out.length) {
-        log('Schedule (row-headers): ' + out.length + ' rows · cols D=' + iD +
-            ' T=' + iT + ' S=' + iS + ' G=' + iG);
+        log('Schedule (A: row-headers): ' + out.length + ' rows');
         return out;
       }
     }
     return null;
   }
 
-  /* Orientation B — labels stacked in column 0, data across columns */
+  /* --- Layout B: field names in column 0, data across columns --- */
   function tryColumnHeaders(rows) {
     var fieldRow = {};
     var scan = Math.min(rows.length, 10);
@@ -597,10 +587,7 @@
       var f = whichField(first);
       if (f && fieldRow[f] == null) fieldRow[f] = r;
     }
-
-    if (fieldRow.date == null || fieldRow.subject == null || fieldRow.grade == null) {
-      return null;
-    }
+    if (fieldRow.date == null || fieldRow.subject == null || fieldRow.grade == null) return null;
 
     var maxCols = 0;
     Object.keys(fieldRow).forEach(function (k) {
@@ -617,13 +604,109 @@
       if (!date && !time && !subject && !grade) continue;
       out.push({ date: date, time: time, subject: subject, grade: grade });
     }
-
     if (out.length) {
-      log('Schedule (column-headers/transposed): ' + out.length +
-          ' rows · fieldRows=' + JSON.stringify(fieldRow));
+      log('Schedule (B: transposed): ' + out.length + ' rows');
       return out;
     }
     return null;
+  }
+
+  /* --- Layout C: matrix ---
+       Class   | 2083/06/22 | 2083/06/23 | ...
+       Nine    | Nepali     | Math       | ...
+       Ten     | English    | Nepali     | ...
+     Time is taken from any preceding row that looks like a time label.
+     Multiple such tables (with different time labels) in one file are supported. */
+  function tryMatrix(rows) {
+    var out = [];
+    var currentTime = '';
+    var i = 0;
+
+    while (i < rows.length) {
+      var row = rows[i] || [];
+
+      var t = detectTimeLabel(row);
+      if (t) { currentTime = t; i++; continue; }
+
+      if (isMatrixHeaderRow(row)) {
+        var dateCols = extractDateColsFromHeader(row);
+        if (dateCols.length) {
+          i++;
+          while (i < rows.length) {
+            var drow = rows[i] || [];
+
+            // skip fully blank rows
+            var hasData = false;
+            for (var x = 0; x < drow.length; x++) {
+              if (String(drow[x] == null ? '' : drow[x]).trim()) { hasData = true; break; }
+            }
+            if (!hasData) { i++; continue; }
+
+            // stop when we hit the next header or time label
+            if (isMatrixHeaderRow(drow)) break;
+            if (detectTimeLabel(drow)) break;
+
+            var grade = String(drow[0] == null ? '' : drow[0]).trim();
+            if (grade) {
+              for (var d = 0; d < dateCols.length; d++) {
+                var dc = dateCols[d];
+                var subj = String(drow[dc.col] == null ? '' : drow[dc.col]).trim();
+                if (!subj) continue;
+                out.push({ date: dc.date, time: currentTime, subject: subj, grade: grade });
+              }
+            }
+            i++;
+          }
+          continue;
+        }
+      }
+      i++;
+    }
+
+    if (out.length) {
+      log('Schedule (C: matrix): ' + out.length + ' rows');
+      return out;
+    }
+    return null;
+  }
+
+  function isMatrixHeaderRow(row) {
+    if (!row || row.length < 2) return false;
+    var first = normHeader(row[0]);
+    if (!first) return false;
+    for (var k = 0; k < FIELD_ALIASES.grade.length; k++) {
+      if (first === FIELD_ALIASES.grade[k]) return true;
+    }
+    return false;
+  }
+
+  function extractDateColsFromHeader(row) {
+    var cols = [];
+    for (var c = 1; c < row.length; c++) {
+      if (looksLikeDate(row[c])) cols.push({ col: c, date: toISODate(row[c]) });
+    }
+    return cols;
+  }
+
+  function detectTimeLabel(row) {
+    if (!row || !row.length) return '';
+    var nonEmpty = [];
+    for (var i = 0; i < row.length; i++) {
+      var v = String(row[i] == null ? '' : row[i]).trim();
+      if (v) nonEmpty.push(v);
+    }
+    if (!nonEmpty.length || nonEmpty.length > 2) return '';
+    var joined = nonEmpty.join(' ').trim();
+
+    // "7:00 AM", "10:00 AM", "Time: 7:00 AM"
+    var m = joined.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/);
+    if (m) return m[1].toUpperCase().replace(/\s+/g, ' ');
+
+    // Named shift labels
+    if (/^(morning|afternoon|evening|primary|secondary|basic|pre.?primary|shift\s*\d+|time\s*\d*|first\s*shift|second\s*shift|third\s*shift)$/i.test(joined)) {
+      return joined;
+    }
+    return '';
   }
 
   /* ---------- tabs ---------- */
