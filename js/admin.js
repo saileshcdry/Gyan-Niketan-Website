@@ -1,6 +1,7 @@
 /**
  * admin.js — Gyan Niketan admin panel
  * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
+ * Supports both normal and transposed (headers-in-column) CSV layouts.
  */
 (function () {
   'use strict';
@@ -18,18 +19,15 @@
     a.unshift('[ADMIN]');
     console.log.apply(console, a);
   }
-
   function $(id) { return document.getElementById(id); }
   function show(el) { if (el) el.hidden = false; }
   function hide(el) { if (el) el.hidden = true; }
-
   function setStatus(el, msg, type) {
     if (!el) return;
     el.textContent = msg || '';
     el.hidden = !msg;
     el.className = 'admin-status' + (type ? ' is-' + type : '');
   }
-
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
@@ -48,7 +46,6 @@
     var c = getCreds();
     return !!(c.token && c.repo);
   }
-
   function signIn() {
     var token = (($('token') || {}).value || '').trim();
     var repo  = (($('repo')  || {}).value || '').trim();
@@ -108,10 +105,8 @@
       });
     });
   }
-
   function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
   function b64decode(str) { return decodeURIComponent(escape(atob(str.replace(/\s/g, '')))); }
-
   function readJSONFile(path) {
     return ghFetch('GET', path).then(function (data) {
       return { data: JSON.parse(b64decode(data.content)), sha: data.sha };
@@ -418,7 +413,10 @@
   }
 
   /* ============================================================
-     CSV / Excel — ROBUST schedule parser
+     CSV / Excel schedule parser
+     — detects both orientations:
+       A) header row across the top (Date, Time, Subject, Grade)
+       B) header labels stacked in column 0 (field-per-row / transposed)
      ============================================================ */
 
   function loadSheetJS() {
@@ -463,9 +461,8 @@
     });
   }
 
-  /* RFC-4180-ish CSV parser. Handles quotes, embedded commas, embedded newlines, CRLF. */
+  /* RFC-4180-ish CSV parser. Handles quotes, embedded commas, embedded newlines, CRLF, BOM. */
   function parseCSV(text) {
-    // strip BOM
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
     var rows = [];
     var cur = [];
@@ -477,9 +474,7 @@
         if (ch === '"') {
           if (text[i + 1] === '"') { field += '"'; i++; }
           else { inQ = false; }
-        } else {
-          field += ch;
-        }
+        } else { field += ch; }
       } else {
         if (ch === '"') { inQ = true; }
         else if (ch === ',') { cur.push(field); field = ''; }
@@ -488,12 +483,9 @@
           cur.push(field);
           rows.push(cur);
           cur = []; field = '';
-        } else {
-          field += ch;
-        }
+        } else { field += ch; }
       }
     }
-    // last field / row
     if (field.length || cur.length) {
       cur.push(field);
       rows.push(cur);
@@ -501,7 +493,6 @@
     return rows;
   }
 
-  /* Normalize a header cell: strip BOM, trim, lowercase, remove all non-alphanumerics */
   function normHeader(s) {
     return String(s == null ? '' : s)
       .replace(/\uFEFF/g, '')
@@ -510,8 +501,13 @@
       .replace(/[^a-z0-9]+/g, '');
   }
 
-  /* Find the index of a column whose normalized header matches one of the aliases.
-     First tries exact match, then partial (contains) match. */
+  var FIELD_ALIASES = {
+    date:    ['date','examdate','examday','miti','datebs','datead','datebsad'],
+    time:    ['time','examtime','samaya','shift','slot'],
+    subject: ['subject','subjectname','paper','sub','vishay','visay','topic'],
+    grade:   ['grade','class','classname','level','kaksha','std','standard']
+  };
+
   function findCol(headers, aliases) {
     var i, j;
     for (i = 0; i < headers.length; i++) {
@@ -528,77 +524,106 @@
     return -1;
   }
 
-  function normalizeSchedule(rows) {
-    if (!rows || !rows.length) return [];
-
-    // Find a header row within the first ~5 rows (skip blank leading rows)
-    var headerRowIdx = -1;
-    var headers = null;
-    for (var r = 0; r < Math.min(rows.length, 5); r++) {
-      var candidate = (rows[r] || []).map(normHeader);
-      var nonEmpty = candidate.filter(function (x) { return x; });
-      if (nonEmpty.length >= 2) {
-        headerRowIdx = r;
-        headers = candidate;
-        break;
+  function whichField(normalized) {
+    var keys = Object.keys(FIELD_ALIASES);
+    for (var i = 0; i < keys.length; i++) {
+      var list = FIELD_ALIASES[keys[i]];
+      for (var j = 0; j < list.length; j++) {
+        if (normalized === list[j]) return keys[i];
       }
     }
-    if (headerRowIdx === -1) {
-      throw new Error('Could not find a header row. First row was: ' +
-        (rows[0] ? rows[0].join(' | ') : '(empty)'));
+    return null;
+  }
+
+  function toISODate(v) {
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v == null ? '' : v).trim();
+  }
+  function toISOTime(v) {
+    if (v instanceof Date) return v.toISOString().slice(11, 16);
+    return String(v == null ? '' : v).trim();
+  }
+
+  function normalizeSchedule(rows) {
+    if (!rows || !rows.length) return [];
+    var a = tryRowHeaders(rows);    if (a) return a;
+    var b = tryColumnHeaders(rows); if (b) return b;
+
+    var preview = rows.slice(0, 4).map(function (r) {
+      return (r || []).join(' | ');
+    }).join('  //  ');
+    throw new Error('Could not detect header row or column. First rows: ' + preview);
+  }
+
+  /* Orientation A — header row across the top */
+  function tryRowHeaders(rows) {
+    for (var r = 0; r < Math.min(rows.length, 5); r++) {
+      var headers = (rows[r] || []).map(normHeader);
+      var nonEmpty = headers.filter(function (x) { return x; });
+      if (nonEmpty.length < 2) continue;
+
+      var iD = findCol(headers, FIELD_ALIASES.date);
+      var iT = findCol(headers, FIELD_ALIASES.time);
+      var iS = findCol(headers, FIELD_ALIASES.subject);
+      var iG = findCol(headers, FIELD_ALIASES.grade);
+      if (iD === -1 || iS === -1 || iG === -1) continue;
+
+      var out = [];
+      for (var i = r + 1; i < rows.length; i++) {
+        var row = rows[i] || [];
+        var date    = toISODate(row[iD]);
+        var time    = iT !== -1 ? toISOTime(row[iT]) : '';
+        var subject = String(row[iS] == null ? '' : row[iS]).trim();
+        var grade   = String(row[iG] == null ? '' : row[iG]).trim();
+        if (!date && !time && !subject && !grade) continue;
+        out.push({ date: date, time: time, subject: subject, grade: grade });
+      }
+      if (out.length) {
+        log('Schedule (row-headers): ' + out.length + ' rows · cols D=' + iD +
+            ' T=' + iT + ' S=' + iS + ' G=' + iG);
+        return out;
+      }
+    }
+    return null;
+  }
+
+  /* Orientation B — labels stacked in column 0, data across columns */
+  function tryColumnHeaders(rows) {
+    var fieldRow = {};
+    var scan = Math.min(rows.length, 10);
+    for (var r = 0; r < scan; r++) {
+      var first = normHeader((rows[r] || [])[0]);
+      if (!first) continue;
+      var f = whichField(first);
+      if (f && fieldRow[f] == null) fieldRow[f] = r;
     }
 
-    // Aliases — keep lowercase, no punctuation
-    var dateAliases    = ['date', 'examdate', 'examday', 'miti', 'datebs', 'datead', 'datebsad'];
-    var timeAliases    = ['time', 'examtime', 'samaya', 'shift', 'slot'];
-    var subjectAliases = ['subject', 'subjectname', 'paper', 'sub', 'vishay', 'visay', 'topic'];
-    var gradeAliases   = ['grade', 'class', 'classname', 'level', 'kaksha', 'std', 'standard'];
-
-    var iD = findCol(headers, dateAliases);
-    var iT = findCol(headers, timeAliases);
-    var iS = findCol(headers, subjectAliases);
-    var iG = findCol(headers, gradeAliases);
-
-    // Fallback: if Time column is missing, tolerate it — set all rows to same group
-    var missing = [];
-    if (iD === -1) missing.push('Date');
-    if (iS === -1) missing.push('Subject');
-    if (iG === -1) missing.push('Grade');
-    // Time is optional now (we won't fail if absent)
-    if (missing.length) {
-      throw new Error(
-        'Missing required columns: ' + missing.join(', ') + '. ' +
-        'Headers found: ' + rows[headerRowIdx].join(' | ')
-      );
+    if (fieldRow.date == null || fieldRow.subject == null || fieldRow.grade == null) {
+      return null;
     }
+
+    var maxCols = 0;
+    Object.keys(fieldRow).forEach(function (k) {
+      var len = (rows[fieldRow[k]] || []).length;
+      if (len > maxCols) maxCols = len;
+    });
 
     var out = [];
-    for (var i = headerRowIdx + 1; i < rows.length; i++) {
-      var row = rows[i] || [];
-      if (!row.length) continue;
-      var date    = String(iD !== -1 ? (row[iD] || '') : '').trim();
-      var time    = String(iT !== -1 ? (row[iT] || '') : '').trim();
-      var subject = String(row[iS] || '').trim();
-      var grade   = String(row[iG] || '').trim();
-      if (!date && !time && !subject && !grade) continue; // skip fully blank rows
-
-      // If date/time came in as a Date object from XLSX, stringify cleanly
-      if (date instanceof Date)    date = date.toISOString().slice(0, 10);
-      if (time instanceof Date)    time = time.toISOString().slice(11, 16);
-
+    for (var c = 1; c < maxCols; c++) {
+      var date    = toISODate((rows[fieldRow.date]    || [])[c]);
+      var time    = fieldRow.time != null ? toISOTime((rows[fieldRow.time] || [])[c]) : '';
+      var subject = String(((rows[fieldRow.subject] || [])[c]) == null ? '' : (rows[fieldRow.subject] || [])[c]).trim();
+      var grade   = String(((rows[fieldRow.grade]   || [])[c]) == null ? '' : (rows[fieldRow.grade]   || [])[c]).trim();
+      if (!date && !time && !subject && !grade) continue;
       out.push({ date: date, time: time, subject: subject, grade: grade });
     }
 
-    if (!out.length) {
-      throw new Error('No data rows found after header. Header row was: ' +
-        rows[headerRowIdx].join(' | '));
+    if (out.length) {
+      log('Schedule (column-headers/transposed): ' + out.length +
+          ' rows · fieldRows=' + JSON.stringify(fieldRow));
+      return out;
     }
-
-    log('Schedule parsed: ' + out.length + ' rows, headers=' +
-        rows[headerRowIdx].join('|') +
-        ' → dateCol=' + iD + ' timeCol=' + iT +
-        ' subjectCol=' + iS + ' gradeCol=' + iG);
-    return out;
+    return null;
   }
 
   /* ---------- tabs ---------- */
