@@ -1,574 +1,581 @@
-/* =========================================================
-   admin.js — GitHub-backed admin + CSV/Excel exam schedule
-   Defensive version with visible error reporting.
-   ========================================================= */
+/**
+ * admin.js - Gyan Niketan admin panel
+ * Corrected: no applyLanguage, no main.js dependency.
+ */
 (function () {
   'use strict';
 
-  /* --------------------------------------------------------
-     Visible error reporter — shows failures on the page
-     so you never have to guess what went wrong.
-     -------------------------------------------------------- */
+  var TOKEN_KEY = 'gn-gh-token';
+  var REPO_KEY = 'gn-gh-repo';
+  var NOTICE_CATS = ['general', 'exam', 'holiday', 'event'];
+  var GALLERY_CATS = ['school', 'classroom', 'lab', 'sports', 'event'];
+  var API = 'https://api.github.com/repos/';
+
   function showFatalError(err) {
-    var msg = (err && err.message) || String(err);
-    console.error('[ADMIN FATAL]', err);
-    // Try to show it on the login screen
-    var el = document.getElementById('login-status');
-    if (el) {
-      el.hidden = false;
-      el.className = 'admin-status error';
-      el.textContent = 'Startup error: ' + msg;
-      el.style.display = 'block';
-    } else {
-      // Login-status doesn't exist yet — append a banner to <body>
-      var banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:14px 20px;background:#fdecec;color:#a01818;font-family:monospace;font-size:.9rem;z-index:9999;border-bottom:2px solid #a01818;';
-      banner.textContent = 'Admin panel startup error: ' + msg;
-      document.body.appendChild(banner);
+    console.error('[ADMIN] Fatal error:', err);
+    var el = document.getElementById('admin-error');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'admin-error';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:12px;z-index:9999;font-family:monospace;white-space:pre-wrap;';
+      document.body.appendChild(el);
     }
+    el.textContent = 'Admin error: ' + (err && err.message ? err.message : String(err));
   }
 
-  try {
-    console.log('[ADMIN] Script starting…');
+  function log() {
+    var args = Array.prototype.slice.call(arguments);
+    args.unshift('[ADMIN]');
+    console.log.apply(console, args);
+  }
 
-    var LS_TOKEN = 'gn-gh-token';
-    var LS_REPO  = 'gn-gh-repo';
-    var BRANCH   = 'main';
-    var NOTICES_PATH = 'data/notices.json';
-    var GALLERY_PATH = 'data/gallery.json';
-    var SHEETJS_URL  = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+  function getCreds() {
+    return {
+      token: localStorage.getItem(TOKEN_KEY) || '',
+      repo: localStorage.getItem(REPO_KEY) || ''
+    };
+  }
 
-    var NOTICE_CATS  = ['general', 'exam', 'holiday', 'event'];
-    var GALLERY_CATS = ['school', 'classroom', 'lab', 'sports', 'event'];
+  function isSignedIn() {
+    var c = getCreds();
+    return !!(c.token && c.repo);
+  }
 
-    var state = { notices: [], gallery: [], noticesSha: null, gallerySha: null, pendingSchedule: null };
-
-    var $ = function (id) { return document.getElementById(id); };
-    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
-
-    /* ---------- auth ---------- */
-    function getCreds() {
-      return {
-        token: localStorage.getItem(LS_TOKEN) || '',
-        repo:  localStorage.getItem(LS_REPO)  || ''
-      };
+  function signIn(e) {
+    if (e) e.preventDefault();
+    var tokenEl = document.getElementById('token');
+    var repoEl = document.getElementById('repo');
+    if (!tokenEl || !repoEl) {
+      showFatalError(new Error('Missing #token or #repo input'));
+      return;
     }
-    function isSignedIn() { var c = getCreds(); return !!(c.token && c.repo); }
-    function signIn(token, repo) {
-      localStorage.setItem(LS_TOKEN, token.trim());
-      localStorage.setItem(LS_REPO, repo.trim().replace(/\.git$/, '').replace(/^https?:\/\/github\.com\//, ''));
+    var token = tokenEl.value.trim();
+    var repo = repoEl.value.trim();
+    if (!token || !repo) {
+      alert('Please enter both GitHub token and repository (owner/repo).');
+      return;
     }
-    function signOut() {
-      localStorage.removeItem(LS_TOKEN);
-      localStorage.removeItem(LS_REPO);
-    }
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(REPO_KEY, repo);
+    log('Signed in as repo:', repo);
+    showDash();
+  }
 
-    /* ---------- GitHub REST ---------- */
-    function ghFetch(method, path, body) {
-      var c = getCreds();
-      var url = 'https://api.github.com/repos/' + c.repo + '/contents/' + path + (method === 'GET' ? '?ref=' + BRANCH : '');
-      var headers = {
-        'Authorization': 'Bearer ' + c.token,
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28'
-      };
-      if (body) headers['Content-Type'] = 'application/json';
-      return fetch(url, {
-        method: method,
-        headers: headers,
-        body: body ? JSON.stringify(body) : undefined
-      }).then(function (r) {
-        if (r.status === 404) return null;
-        if (r.status === 401 || r.status === 403) throw new Error('Authentication failed. Check your token and its permissions (Contents: Read and write).');
-        if (r.status === 409) throw new Error('Conflict: the file was modified elsewhere since you loaded it. Reload the admin page and try again.');
-        if (r.status === 422) throw new Error('GitHub rejected the request (422). This usually means the file content or branch name is invalid.');
-        if (!r.ok) return r.text().then(function (txt) { throw new Error('GitHub API ' + r.status + ': ' + txt); });
-        return r.json();
+  function signOut() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REPO_KEY);
+    log('Signed out');
+    showLogin();
+  }
+
+  function showLogin() {
+    var loginView = document.getElementById('login-view');
+    var dashView = document.getElementById('dash-view');
+    if (loginView) loginView.style.display = '';
+    if (dashView) dashView.style.display = 'none';
+  }
+
+  function showDash() {
+    var loginView = document.getElementById('login-view');
+    var dashView = document.getElementById('dash-view');
+    if (loginView) loginView.style.display = 'none';
+    if (dashView) dashView.style.display = '';
+    loadData();
+  }
+
+  function ghFetch(method, path, body) {
+    var c = getCreds();
+    if (!c.token || !c.repo) {
+      return Promise.reject(new Error('Not signed in'));
+    }
+    var url = API + c.repo + '/contents/' + path;
+    var opts = {
+      method: method,
+      headers: {
+        'Authorization': 'token ' + c.token,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    log('GitHub API', method, path);
+    return fetch(url, opts).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (err) {
+          var msg = err.message || res.statusText;
+          if (res.status === 409) msg = 'Conflict: ' + msg + ' (refresh and try again)';
+          if (res.status === 422) msg = 'Unprocessable: ' + msg;
+          throw new Error(msg);
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function b64encode(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function b64decode(str) {
+    return decodeURIComponent(escape(atob(str.replace(/\s/g, ''))));
+  }
+
+  function readJSONFile(path) {
+    return ghFetch('GET', path + '?ref=main').then(function (data) {
+      return { data: JSON.parse(b64decode(data.content)), sha: data.sha };
+    });
+  }
+
+  function writeJSONFile(path, data, sha, message) {
+    var body = {
+      message: message || 'Update ' + path,
+      content: b64encode(JSON.stringify(data, null, 2)),
+      branch: 'main'
+    };
+    if (sha) body.sha = sha;
+    return ghFetch('PUT', path, body);
+  }
+
+  var state = {
+    notices: [],
+    gallery: [],
+    noticesSha: null,
+    gallerySha: null,
+    editingNoticeId: null,
+    editingPhotoId: null
+  };
+
+  function loadData() {
+    log('Loading data...');
+    Promise.all([
+      readJSONFile('data/notices.json').catch(function (e) {
+        log('Notices load error', e);
+        return { data: [], sha: null };
+      }),
+      readJSONFile('data/gallery.json').catch(function (e) {
+        log('Gallery load error', e);
+        return { data: [], sha: null };
+      })
+    ]).then(function (results) {
+      state.notices = results[0].data || [];
+      state.noticesSha = results[0].sha;
+      state.gallery = results[1].data || [];
+      state.gallerySha = results[1].sha;
+      renderNotices();
+      renderGallery();
+    }).catch(function (err) {
+      showFatalError(err);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+
+  function renderNotices() {
+    var list = document.getElementById('notices-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!state.notices.length) {
+      list.innerHTML = '<p>No notices yet.</p>';
+      return;
+    }
+    state.notices.forEach(function (n) {
+      var div = document.createElement('div');
+      div.className = 'admin-item';
+      div.innerHTML = '<strong>' + escapeHtml(n.title_en || n.title_np || 'Untitled') + '</strong>' +
+        '<span> ' + escapeHtml(n.date || '') + ' · ' + escapeHtml(n.category || '') + '</span>' +
+        '<button data-id="' + n.id + '" class="edit-notice">Edit</button>' +
+        '<button data-id="' + n.id + '" class="delete-notice">Delete</button>';
+      list.appendChild(div);
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.edit-notice'), function (btn) {
+      btn.addEventListener('click', function () {
+        editNotice(btn.getAttribute('data-id'));
       });
-    }
-
-    function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
-    function b64decode(str) { return decodeURIComponent(escape(atob(str))); }
-
-    function readJSONFile(path) {
-      return ghFetch('GET', path).then(function (res) {
-        if (!res) return { data: [], sha: null };
-        return { data: JSON.parse(b64decode(res.content) || '[]'), sha: res.sha };
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.delete-notice'), function (btn) {
+      btn.addEventListener('click', function () {
+        deleteNotice(btn.getAttribute('data-id'));
       });
-    }
+    });
+  }
 
-    function writeJSONFile(path, data, sha, message) {
-      var body = { message: message, content: b64encode(JSON.stringify(data, null, 2)), branch: BRANCH };
-      if (sha) body.sha = sha;
-      return ghFetch('PUT', path, body);
+  function renderGallery() {
+    var list = document.getElementById('gallery-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!state.gallery.length) {
+      list.innerHTML = '<p>No photos yet.</p>';
+      return;
     }
+    state.gallery.forEach(function (g) {
+      var div = document.createElement('div');
+      div.className = 'admin-item';
+      div.innerHTML = '<img src="' + escapeHtml(g.src) + '" style="max-width:80px;vertical-align:middle;"> ' +
+        '<strong>' + escapeHtml(g.title_en || g.title_np || 'Untitled') + '</strong>' +
+        '<span> ' + escapeHtml(g.cat || '') + '</span>' +
+        '<button data-id="' + g.id + '" class="edit-photo">Edit</button>' +
+        '<button data-id="' + g.id + '" class="delete-photo">Delete</button>';
+      list.appendChild(div);
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.edit-photo'), function (btn) {
+      btn.addEventListener('click', function () {
+        editPhoto(btn.getAttribute('data-id'));
+      });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.delete-photo'), function (btn) {
+      btn.addEventListener('click', function () {
+        deletePhoto(btn.getAttribute('data-id'));
+      });
+    });
+  }
 
-    function readImageAsBase64(file) {
+  function editNotice(id) {
+    var n = null;
+    for (var i = 0; i < state.notices.length; i++) {
+      if (state.notices[i].id === id) { n = state.notices[i]; break; }
+    }
+    if (!n) return;
+    state.editingNoticeId = id;
+    var f = {
+      id: document.getElementById('notice-id'),
+      date: document.getElementById('notice-date'),
+      cat: document.getElementById('notice-category'),
+      titleEn: document.getElementById('notice-title-en'),
+      titleNp: document.getElementById('notice-title-np'),
+      msgEn: document.getElementById('notice-message-en'),
+      msgNp: document.getElementById('notice-message-np')
+    };
+    if (f.id) f.id.value = n.id || '';
+    if (f.date) f.date.value = n.date || '';
+    if (f.cat) f.cat.value = n.category || 'general';
+    if (f.titleEn) f.titleEn.value = n.title_en || '';
+    if (f.titleNp) f.titleNp.value = n.title_np || '';
+    if (f.msgEn) f.msgEn.value = n.message_en || '';
+    if (f.msgNp) f.msgNp.value = n.message_np || '';
+    var form = document.getElementById('notice-form');
+    if (form) form.style.display = '';
+  }
+
+  function deleteNotice(id) {
+    if (!confirm('Delete this notice?')) return;
+    var next = state.notices.filter(function (n) { return n.id !== id; });
+    writeJSONFile('data/notices.json', next, state.noticesSha, 'Delete notice ' + id)
+      .then(function () {
+        log('Notice deleted:', id);
+        loadData();
+      })
+      .catch(showFatalError);
+  }
+
+  function saveNotice(e) {
+    if (e) e.preventDefault();
+    var id = document.getElementById('notice-id') ? document.getElementById('notice-id').value : '';
+    var date = document.getElementById('notice-date') ? document.getElementById('notice-date').value : '';
+    var cat = document.getElementById('notice-category') ? document.getElementById('notice-category').value : 'general';
+    var titleEn = document.getElementById('notice-title-en') ? document.getElementById('notice-title-en').value : '';
+    var titleNp = document.getElementById('notice-title-np') ? document.getElementById('notice-title-np').value : '';
+    var msgEn = document.getElementById('notice-message-en') ? document.getElementById('notice-message-en').value : '';
+    var msgNp = document.getElementById('notice-message-np') ? document.getElementById('notice-message-np').value : '';
+    if (!titleEn && !titleNp) { alert('Title is required.'); return; }
+    if (NOTICE_CATS.indexOf(cat) === -1) { alert('Invalid notice category.'); return; }
+
+    var notice = {
+      id: id || 'n-' + Date.now(),
+      date: date,
+      category: cat,
+      title_en: titleEn,
+      title_np: titleNp,
+      message_en: msgEn,
+      message_np: msgNp
+    };
+
+    // If exam category, try to parse schedule file
+    if (cat === 'exam') {
+      var fileInput = document.getElementById('notice-schedule-file');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        parseScheduleFile(fileInput.files[0]).then(function (rows) {
+          notice.schedule = rows;
+          commitNotice(notice);
+        }).catch(function (err) {
+          alert('Schedule parse error: ' + err.message);
+        });
+        return;
+      }
+    }
+    commitNotice(notice);
+  }
+
+  function commitNotice(notice) {
+    var existing = state.notices.slice();
+    var idx = -1;
+    for (var i = 0; i < existing.length; i++) {
+      if (existing[i].id === notice.id) { idx = i; break; }
+    }
+    if (idx >= 0) existing[idx] = notice;
+    else existing.push(notice);
+
+    writeJSONFile('data/notices.json', existing, state.noticesSha, 'Save notice ' + notice.id)
+      .then(function () {
+        log('Notice saved:', notice.id);
+        state.editingNoticeId = null;
+        var form = document.getElementById('notice-form');
+        if (form) form.reset();
+        loadData();
+      })
+      .catch(showFatalError);
+  }
+
+  function editPhoto(id) {
+    var g = null;
+    for (var i = 0; i < state.gallery.length; i++) {
+      if (state.gallery[i].id === id) { g = state.gallery[i]; break; }
+    }
+    if (!g) return;
+    state.editingPhotoId = id;
+    var f = {
+      id: document.getElementById('photo-id'),
+      cat: document.getElementById('photo-category'),
+      titleEn: document.getElementById('photo-title-en'),
+      titleNp: document.getElementById('photo-title-np')
+    };
+    if (f.id) f.id.value = g.id || '';
+    if (f.cat) f.cat.value = g.cat || 'school';
+    if (f.titleEn) f.titleEn.value = g.title_en || '';
+    if (f.titleNp) f.titleNp.value = g.title_np || '';
+    var form = document.getElementById('photo-form');
+    if (form) form.style.display = '';
+  }
+
+  function deletePhoto(id) {
+    if (!confirm('Delete this photo?')) return;
+    var next = state.gallery.filter(function (g) { return g.id !== id; });
+    writeJSONFile('data/gallery.json', next, state.gallerySha, 'Delete photo ' + id)
+      .then(function () {
+        log('Photo deleted:', id);
+        loadData();
+      })
+      .catch(showFatalError);
+  }
+
+  function savePhoto(e) {
+    if (e) e.preventDefault();
+    var id = document.getElementById('photo-id') ? document.getElementById('photo-id').value : '';
+    var cat = document.getElementById('photo-category') ? document.getElementById('photo-category').value : 'school';
+    var titleEn = document.getElementById('photo-title-en') ? document.getElementById('photo-title-en').value : '';
+    var titleNp = document.getElementById('photo-title-np') ? document.getElementById('photo-title-np').value : '';
+    var fileInput = document.getElementById('photo-file');
+    if (!titleEn && !titleNp) { alert('Title is required.'); return; }
+    if (GALLERY_CATS.indexOf(cat) === -1) { alert('Invalid gallery category.'); return; }
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      if (!id) { alert('Please choose a photo.'); return; }
+      // Editing without new file: just update metadata
+      updateGalleryEntry(id, cat, titleEn, titleNp, null);
+      return;
+    }
+    var file = fileInput.files[0];
+    if (file.size > 2 * 1024 * 1024) { alert('Photo must be under 2 MB.'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var base64 = reader.result.split(',')[1];
+      var ext = file.name.split('.').pop().toLowerCase();
+      var newId = id || 'g-' + Date.now();
+      var filename = newId + '.' + ext;
+      var path = 'assets/gallery/' + filename;
+      ghFetch('PUT', path, {
+        message: 'Upload gallery photo ' + filename,
+        content: base64,
+        branch: 'main'
+      }).then(function () {
+        updateGalleryEntry(newId, cat, titleEn, titleNp, path);
+      }).catch(showFatalError);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateGalleryEntry(id, cat, titleEn, titleNp, src) {
+    var existing = state.gallery.slice();
+    var idx = -1;
+    for (var i = 0; i < existing.length; i++) {
+      if (existing[i].id === id) { idx = i; break; }
+    }
+    var entry = {
+      id: id,
+      cat: cat,
+      title_en: titleEn,
+      title_np: titleNp,
+      src: src || (idx >= 0 ? existing[idx].src : '')
+    };
+    if (!entry.src) { alert('Photo source missing.'); return; }
+    if (idx >= 0) existing[idx] = entry;
+    else existing.push(entry);
+
+    writeJSONFile('data/gallery.json', existing, state.gallerySha, 'Save gallery photo ' + id)
+      .then(function () {
+        log('Gallery saved:', id);
+        state.editingPhotoId = null;
+        var form = document.getElementById('photo-form');
+        if (form) form.reset();
+        loadData();
+      })
+      .catch(showFatalError);
+  }
+
+  /* ---------- CSV / SheetJS schedule parsing ---------- */
+
+  function loadSheetJS() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = function () { resolve(window.XLSX); };
+      s.onerror = function () { reject(new Error('Failed to load SheetJS')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function parseScheduleFile(file) {
+    var ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'csv') {
       return new Promise(function (resolve, reject) {
         var reader = new FileReader();
         reader.onload = function () {
-          var result = reader.result || '';
-          var idx = result.indexOf(',');
-          resolve({ base64: result.slice(idx + 1), dataUrl: result });
+          try {
+            resolve(normalizeSchedule(parseCSV(reader.result)));
+          } catch (e) { reject(e); }
         };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.onerror = function () { reject(new Error('File read error')); };
+        reader.readAsText(file);
       });
     }
-
-    function uploadImageToRepo(folder, filename, base64) {
-      return ghFetch('GET', folder + '/' + filename).then(function (existing) {
-        var body = { message: 'Upload ' + filename, content: base64, branch: BRANCH };
-        if (existing && existing.sha) body.sha = existing.sha;
-        return ghFetch('PUT', folder + '/' + filename, body);
-      });
-    }
-
-    /* ---------- status ---------- */
-    function status(msg, kind) {
-      var el = $('status');
-      if (!el) return;
-      if (!msg) { el.hidden = true; return; }
-      el.hidden = false;
-      el.className = 'admin-status ' + (kind || 'ok');
-      el.textContent = msg;
-      if (kind === 'ok') setTimeout(function () { el.hidden = true; }, 4500);
-    }
-
-    /* ---------- load / navigation ---------- */
-    function showDash() { $('login-view').hidden = true; $('dash-view').hidden = false; loadAll(); }
-    function showLogin() { $('login-view').hidden = false; $('dash-view').hidden = true; }
-
-    function loadAll() {
-      status('Loading data…', 'ok');
-      Promise.all([readJSONFile(NOTICES_PATH), readJSONFile(GALLERY_PATH)])
-        .then(function (res) {
-          state.notices = res[0].data || [];
-          state.noticesSha = res[0].sha;
-          state.gallery = res[1].data || [];
-          state.gallerySha = res[1].sha;
-          state.notices.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-          renderNotices();
-          renderGallery();
-          status('');
-        })
-        .catch(function (err) { status(err.message, 'error'); });
-    }
-
-    /* ---------- notices list ---------- */
-    function renderNotices() {
-      var host = $('notices-list');
-      if (!host) return;
-      if (!state.notices.length) { host.innerHTML = '<p class="hint">No notices yet. Click "+ Add Notice" to create one.</p>'; return; }
-      host.innerHTML = state.notices.map(function (n) {
-        var hasSchedule = Array.isArray(n.schedule) && n.schedule.length > 0;
-        return '<div class="admin-row" data-id="' + esc(n.id) + '">' +
-          '<div>' +
-            '<div class="title">' + esc(n.title_en || n.title_np || '(untitled)') + '</div>' +
-            '<div class="meta">' + esc(n.date) + ' · ' + esc(n.cat) +
-              (hasSchedule ? ' · 📅 ' + n.schedule.length + ' schedule rows' : '') +
-            '</div>' +
-          '</div>' +
-          '<div class="actions">' +
-            '<button type="button" data-act="edit">Edit</button>' +
-            '<button type="button" class="danger" data-act="del">Delete</button>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-    /* ---------- notice modal ---------- */
-    function openNoticeModal(notice) {
-      $('notice-modal-title').textContent = notice ? 'Edit Notice' : 'Add Notice';
-      $('n-id').value = notice ? notice.id : '';
-      $('n-date').value = notice ? notice.date : new Date().toISOString().slice(0, 10);
-      $('n-cat').value = notice ? notice.cat : 'general';
-      $('n-title-en').value = notice ? (notice.title_en || '') : '';
-      $('n-title-np').value = notice ? (notice.title_np || '') : '';
-      $('n-ex-en').value = notice ? (notice.excerpt_en || '') : '';
-      $('n-ex-np').value = notice ? (notice.excerpt_np || '') : '';
-      state.pendingSchedule = notice && Array.isArray(notice.schedule) ? notice.schedule.slice() : null;
-      updateScheduleUI();
-      $('notice-modal').hidden = false;
-    }
-    function closeNoticeModal() {
-      $('notice-modal').hidden = true;
-      state.pendingSchedule = null;
-      var fi = $('n-schedule-file'); if (fi) fi.value = '';
-      var prev = $('n-schedule-preview'); if (prev) prev.innerHTML = '';
-    }
-
-    function updateScheduleUI() {
-      var cat = $('n-cat').value;
-      var isExam = (cat === 'exam');
-      var wrap = $('n-schedule-wrap');
-      if (wrap) wrap.hidden = !isExam;
-      var prev = $('n-schedule-preview');
-      if (!prev) return;
-      if (!isExam) { prev.innerHTML = ''; return; }
-      if (!state.pendingSchedule || !state.pendingSchedule.length) {
-        prev.innerHTML = '<p class="hint" style="margin:0;">No schedule attached yet. Upload a CSV or Excel file below.</p>';
-        return;
-      }
-      var rows = state.pendingSchedule;
-      var head = '<tr><th>Date</th><th>Time</th><th>Subject</th><th>Grade</th></tr>';
-      var body = rows.map(function (r) {
-        return '<tr><td>' + esc(r.date || '') + '</td><td>' + esc(r.time || '') + '</td>' +
-               '<td>' + esc(r.subject || '') + '</td><td>' + esc(r.grade || '') + '</td></tr>';
-      }).join('');
-      prev.innerHTML =
-        '<div style="margin-top:10px;">' +
-          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
-            '<strong style="font-size:.85rem;">' + rows.length + ' schedule rows attached</strong>' +
-            '<button type="button" id="clear-schedule-btn" style="font-size:.8rem; color:#b91c1c; background:transparent; border:0; cursor:pointer;">Remove</button>' +
-          '</div>' +
-          '<div style="max-height:220px; overflow:auto; border:1px solid var(--gray-200); border-radius:8px;">' +
-            '<table class="info-table" style="font-size:.82rem;"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' +
-          '</div>' +
-        '</div>';
-      var clearBtn = $('clear-schedule-btn');
-      if (clearBtn) clearBtn.addEventListener('click', function () {
-        state.pendingSchedule = null;
-        var fi = $('n-schedule-file'); if (fi) fi.value = '';
-        updateScheduleUI();
-      });
-    }
-
-    /* ---------- CSV / Excel parsing ---------- */
-    function loadSheetJS() {
-      if (window.XLSX) return Promise.resolve(window.XLSX);
+    return loadSheetJS().then(function (XLSX) {
       return new Promise(function (resolve, reject) {
-        var s = document.createElement('script');
-        s.src = SHEETJS_URL;
-        s.onload = function () { resolve(window.XLSX); };
-        s.onerror = function () { reject(new Error('Could not load spreadsheet parser. Check your internet connection.')); };
-        document.head.appendChild(s);
-      });
-    }
-
-    function parseCSV(text) {
-      var rows = [], row = [], cur = '', inQ = false;
-      for (var i = 0; i < text.length; i++) {
-        var c = text[i];
-        if (inQ) {
-          if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
-          else cur += c;
-        } else {
-          if (c === '"') inQ = true;
-          else if (c === ',') { row.push(cur); cur = ''; }
-          else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
-          else if (c === '\r') { /* skip */ }
-          else cur += c;
-        }
-      }
-      if (cur.length || row.length) { row.push(cur); rows.push(row); }
-      return rows.filter(function (r) { return r.some(function (c) { return String(c).trim(); }); });
-    }
-
-    function normaliseHeader(h) {
-      var s = String(h || '').toLowerCase().trim().replace(/[^a-z]/g, '');
-      if (s.indexOf('date') !== -1) return 'date';
-      if (s.indexOf('time') !== -1) return 'time';
-      if (s.indexOf('subject') !== -1 || s.indexOf('paper') !== -1) return 'subject';
-      if (s.indexOf('grade') !== -1 || s.indexOf('class') !== -1) return 'grade';
-      return null;
-    }
-
-    function normalizeSchedule(rows) {
-      if (!rows.length) return [];
-      var header = rows[0];
-      var mapped = header.map(normaliseHeader);
-      var hasHeader = mapped.some(function (m) { return m; });
-      var startIdx = hasHeader ? 1 : 0;
-      var cols = hasHeader ? mapped : ['date', 'time', 'subject', 'grade'];
-      var out = [];
-      for (var i = startIdx; i < rows.length; i++) {
-        var r = rows[i];
-        var obj = { date: '', time: '', subject: '', grade: '' };
-        for (var j = 0; j < r.length; j++) {
-          var key = cols[j];
-          if (key) obj[key] = String(r[j] || '').trim();
-        }
-        if (obj.date || obj.subject) out.push(obj);
-      }
-      return out;
-    }
-
-    function parseScheduleFile(file) {
-      var name = file.name.toLowerCase();
-      if (name.endsWith('.csv') || name.endsWith('.txt')) {
-        return new Promise(function (resolve, reject) {
-          var r = new FileReader();
-          r.onload = function () { try { resolve(normalizeSchedule(parseCSV(String(r.result || '')))); } catch (e) { reject(e); } };
-          r.onerror = function () { reject(new Error('Could not read the file.')); };
-          r.readAsText(file);
-        });
-      }
-      return loadSheetJS().then(function (XLSX) {
-        return new Promise(function (resolve, reject) {
-          var r = new FileReader();
-          r.onload = function () {
-            try {
-              var wb = XLSX.read(new Uint8Array(r.result), { type: 'array' });
-              var ws = wb.Sheets[wb.SheetNames[0]];
-              var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-              resolve(normalizeSchedule(rows.filter(function (row) { return row.some(function (c) { return String(c).trim(); }); })));
-            } catch (e) { reject(new Error('Could not parse the Excel file.')); }
-          };
-          r.onerror = function () { reject(new Error('Could not read the file.')); };
-          r.readAsArrayBuffer(file);
-        });
-      });
-    }
-
-    /* ---------- save notice ---------- */
-    function saveNotice(e) {
-      e.preventDefault();
-      var id = $('n-id').value || ('n-' + Date.now());
-      var catRaw = $('n-cat').value;
-      var cat = (NOTICE_CATS.indexOf(catRaw) >= 0) ? catRaw : 'general';
-      var entry = {
-        id: id,
-        date: $('n-date').value,
-        cat: cat,
-        title_en: $('n-title-en').value.trim(),
-        title_np: $('n-title-np').value.trim(),
-        excerpt_en: $('n-ex-en').value.trim(),
-        excerpt_np: $('n-ex-np').value.trim()
-      };
-      if (cat === 'exam' && state.pendingSchedule && state.pendingSchedule.length) {
-        entry.schedule = state.pendingSchedule;
-      }
-      var idx = state.notices.findIndex(function (n) { return n.id === id; });
-      if (idx >= 0) state.notices[idx] = entry; else state.notices.unshift(entry);
-      state.notices.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-
-      status('Publishing notice…', 'ok');
-      writeJSONFile(NOTICES_PATH, state.notices, state.noticesSha, (idx >= 0 ? 'Update notice: ' : 'Add notice: ') + entry.title_en)
-        .then(function (res) {
-          state.noticesSha = res.content.sha;
-          renderNotices();
-          closeNoticeModal();
-          status('Notice published. The live site will update in ~1 minute.', 'ok');
-        })
-        .catch(function (err) { status(err.message, 'error'); });
-    }
-
-    function deleteNotice(id) {
-      if (!confirm('Delete this notice? This will be published immediately.')) return;
-      var idx = state.notices.findIndex(function (n) { return n.id === id; });
-      if (idx < 0) return;
-      var removed = state.notices[idx];
-      state.notices.splice(idx, 1);
-      status('Deleting…', 'ok');
-      writeJSONFile(NOTICES_PATH, state.notices, state.noticesSha, 'Delete notice: ' + removed.title_en)
-        .then(function (res) { state.noticesSha = res.content.sha; renderNotices(); status('Notice deleted.', 'ok'); })
-        .catch(function (err) { state.notices.splice(idx, 0, removed); renderNotices(); status(err.message, 'error'); });
-    }
-
-    /* ---------- gallery ---------- */
-    function renderGallery() {
-      var host = $('gallery-list');
-      if (!host) return;
-      if (!state.gallery.length) { host.innerHTML = '<p class="hint">No photos yet. Click "+ Upload Photo".</p>'; return; }
-      host.innerHTML = state.gallery.map(function (g) {
-        return '<div class="thumb" data-id="' + esc(g.id) + '">' +
-          '<img src="' + esc(g.src) + '" alt="">' +
-          '<div class="cap">' +
-            '<span>' + esc(g.title_en || '') + '</span>' +
-            '<span>' +
-              '<button type="button" data-act="edit">Edit</button>' +
-              ' <button type="button" data-act="del">Delete</button>' +
-            '</span>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-    function openPhotoModal(item) {
-      $('photo-modal-title').textContent = item ? 'Edit Photo' : 'Upload Photo';
-      $('p-id').value = item ? item.id : '';
-      $('p-existing-src').value = item ? item.src : '';
-      $('p-cat').value = item ? item.cat : 'school';
-      $('p-title-en').value = item ? (item.title_en || '') : '';
-      $('p-title-np').value = item ? (item.title_np || '') : '';
-      $('p-file').value = '';
-      $('p-file-hint').textContent = item ? '(leave blank to keep existing photo)' : '(JPG/PNG, max ~2 MB)';
-      $('photo-modal').hidden = false;
-    }
-    function closePhotoModal() { $('photo-modal').hidden = true; }
-
-    function slugify(str) {
-      return String(str || '').toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'photo';
-    }
-
-    function savePhoto(e) {
-      e.preventDefault();
-      var id = $('p-id').value || ('g-' + Date.now());
-      var existingSrc = $('p-existing-src').value;
-      var catRaw = $('p-cat').value;
-      var cat = (GALLERY_CATS.indexOf(catRaw) >= 0) ? catRaw : 'school';
-      var fileInput = $('p-file');
-      var file = fileInput.files && fileInput.files[0];
-
-      function finish(src) {
-        var entry = {
-          id: id,
-          cat: cat,
-          title_en: $('p-title-en').value.trim(),
-          title_np: $('p-title-np').value.trim(),
-          src: src
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = new Uint8Array(reader.result);
+            var wb = XLSX.read(data, { type: 'array' });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            resolve(normalizeSchedule(rows));
+          } catch (e) { reject(e); }
         };
-        var idx = state.gallery.findIndex(function (g) { return g.id === id; });
-        if (idx >= 0) state.gallery[idx] = entry; else state.gallery.push(entry);
+        reader.onerror = function () { reject(new Error('File read error')); };
+        reader.readAsArrayBuffer(file);
+      });
+    });
+  }
 
-        writeJSONFile(GALLERY_PATH, state.gallery, state.gallerySha, (idx >= 0 ? 'Update photo: ' : 'Add photo: ') + entry.title_en)
-          .then(function (res) { state.gallerySha = res.content.sha; renderGallery(); closePhotoModal(); status('Photo published. The live site will update in ~1 minute.', 'ok'); })
-          .catch(function (err) { status(err.message, 'error'); });
+  function parseCSV(text) {
+    var lines = text.split(/\r?\n/).filter(function (l) { return l.trim() !== ''; });
+    var rows = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var cells = [];
+      var cur = '';
+      var inQuotes = false;
+      for (var j = 0; j < line.length; j++) {
+        var ch = line[j];
+        if (ch === '"') {
+          if (inQuotes && line[j + 1] === '"') { cur += '"'; j++; }
+          else inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+          cells.push(cur.trim()); cur = '';
+        } else {
+          cur += ch;
+        }
       }
-
-      if (!file) {
-        if (!existingSrc) { status('Please choose a photo file.', 'error'); return; }
-        finish(existingSrc);
-        return;
-      }
-      if (file.size > 2.5 * 1024 * 1024) { status('Photo is too large. Please compress it below 2 MB.', 'error'); return; }
-
-      var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
-      var filename = slugify($('p-title-en').value) + '-' + Date.now() + '.' + ext;
-
-      status('Uploading photo…', 'ok');
-      readImageAsBase64(file)
-        .then(function (b) { return uploadImageToRepo('assets/gallery', filename, b.base64); })
-        .then(function () { finish('assets/gallery/' + filename); })
-        .catch(function (err) { status('Upload failed: ' + err.message, 'error'); });
+      cells.push(cur.trim());
+      rows.push(cells);
     }
+    return rows;
+  }
 
-    function deletePhoto(id) {
-      if (!confirm('Remove this photo from the gallery? (The image file will stay in the repo.)')) return;
-      var idx = state.gallery.findIndex(function (g) { return g.id === id; });
-      if (idx < 0) return;
-      var removed = state.gallery[idx];
-      state.gallery.splice(idx, 1);
-      status('Deleting…', 'ok');
-      writeJSONFile(GALLERY_PATH, state.gallery, state.gallerySha, 'Delete photo: ' + removed.title_en)
-        .then(function (res) { state.gallerySha = res.content.sha; renderGallery(); status('Photo removed from gallery.', 'ok'); })
-        .catch(function (err) { state.gallery.splice(idx, 0, removed); renderGallery(); status(err.message, 'error'); });
+  function normalizeSchedule(rows) {
+    if (!rows || !rows.length) return [];
+    var header = rows[0].map(function (h) { return String(h).trim().toLowerCase(); });
+    var idx = {
+      date: header.indexOf('date'),
+      time: header.indexOf('time'),
+      subject: header.indexOf('subject'),
+      grade: header.indexOf('grade')
+    };
+    if (idx.date === -1 || idx.time === -1 || idx.subject === -1 || idx.grade === -1) {
+      throw new Error('CSV must have columns: Date, Time, Subject, Grade');
     }
+    var out = [];
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || r.length < 4) continue;
+      out.push({
+        date: String(r[idx.date] || '').trim(),
+        time: String(r[idx.time] || '').trim(),
+        subject: String(r[idx.subject] || '').trim(),
+        grade: String(r[idx.grade] || '').trim()
+      });
+    }
+    return out;
+  }
 
-    /* ---------- wire up ---------- */
-    function init() {
-      console.log('[ADMIN] DOMContentLoaded — wiring up UI');
+  /* ---------- Init ---------- */
 
-      // Sanity check: every element the script needs
-      var required = ['login-view', 'dash-view', 'login-btn', 'token', 'repo',
-                      'signout-btn', 'add-notice-btn', 'notice-form',
-                      'add-photo-btn', 'photo-form'];
+  function init() {
+    log('Script starting...');
+    try {
+      var required = ['login-btn', 'repo', 'token', 'dash-view', 'login-view'];
       var missing = required.filter(function (id) { return !document.getElementById(id); });
       if (missing.length) {
-        throw new Error('HTML is missing required elements: ' + missing.join(', '));
+        log('Missing required elements:', missing);
       }
-      console.log('[ADMIN] All required elements present');
+
+      var loginBtn = document.getElementById('login-btn');
+      if (loginBtn) loginBtn.addEventListener('click', signIn);
+
+      var logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) logoutBtn.addEventListener('click', signOut);
+
+      var noticeForm = document.getElementById('notice-form');
+      if (noticeForm) noticeForm.addEventListener('submit', saveNotice);
+
+      var photoForm = document.getElementById('photo-form');
+      if (photoForm) photoForm.addEventListener('submit', savePhoto);
+
+      var addNoticeBtn = document.getElementById('add-notice-btn');
+      if (addNoticeBtn) {
+        addNoticeBtn.addEventListener('click', function () {
+          state.editingNoticeId = null;
+          var form = document.getElementById('notice-form');
+          if (form) { form.reset(); form.style.display = ''; }
+        });
+      }
+
+      var addPhotoBtn = document.getElementById('add-photo-btn');
+      if (addPhotoBtn) {
+        addPhotoBtn.addEventListener('click', function () {
+          state.editingPhotoId = null;
+          var form = document.getElementById('photo-form');
+          if (form) { form.reset(); form.style.display = ''; }
+        });
+      }
 
       if (isSignedIn()) {
-        console.log('[ADMIN] Found saved credentials — showing dashboard');
         showDash();
       } else {
-        console.log('[ADMIN] No saved credentials — showing login form');
         showLogin();
       }
-
-      // Login button
-      $('login-btn').addEventListener('click', function () {
-        console.log('[ADMIN] Sign in clicked');
-        var token = $('token').value.trim();
-        var repo  = $('repo').value.trim();
-        if (!token || !repo) {
-          console.warn('[ADMIN] Missing token or repo');
-          $('login-status').hidden = false;
-          $('login-status').className = 'admin-status error';
-          $('login-status').textContent = 'Please fill both fields.';
-          return;
-        }
-        console.log('[ADMIN] Signing in with repo=' + repo);
-        signIn(token, repo);
-        showDash();
-      });
-
-      // Sign out button
-      $('signout-btn').addEventListener('click', function () {
-        console.log('[ADMIN] Sign out clicked');
-        signOut();
-        showLogin();
-        $('token').value = '';
-      });
-
-      // Tabs
-      document.querySelectorAll('.admin-tabs button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          document.querySelectorAll('.admin-tabs button').forEach(function (x) { x.classList.remove('is-active'); });
-          b.classList.add('is-active');
-          $('tab-notices').hidden = (b.dataset.tab !== 'notices');
-          $('tab-gallery').hidden = (b.dataset.tab !== 'gallery');
-        });
-      });
-
-      // Notices
-      $('add-notice-btn').addEventListener('click', function () { openNoticeModal(null); });
-      $('notice-cancel').addEventListener('click', closeNoticeModal);
-      $('notice-form').addEventListener('submit', saveNotice);
-      $('n-cat').addEventListener('change', updateScheduleUI);
-
-      var fileInput = $('n-schedule-file');
-      if (fileInput) {
-        fileInput.addEventListener('change', function () {
-          var f = fileInput.files && fileInput.files[0];
-          if (!f) return;
-          status('Reading schedule file…', 'ok');
-          parseScheduleFile(f)
-            .then(function (rows) {
-              if (!rows.length) throw new Error('No rows found. Expected columns: Date, Time, Subject, Grade.');
-              state.pendingSchedule = rows;
-              updateScheduleUI();
-              status('Loaded ' + rows.length + ' schedule rows.', 'ok');
-            })
-            .catch(function (err) { status(err.message, 'error'); });
-        });
-      }
-
-      $('notices-list').addEventListener('click', function (e) {
-        var btn = e.target.closest('button'); if (!btn) return;
-        var row = e.target.closest('.admin-row'); if (!row) return;
-        var id = row.dataset.id;
-        if (btn.dataset.act === 'edit') openNoticeModal(state.notices.find(function (n) { return n.id === id; }));
-        if (btn.dataset.act === 'del')  deleteNotice(id);
-      });
-
-      // Gallery
-      $('add-photo-btn').addEventListener('click', function () { openPhotoModal(null); });
-      $('photo-cancel').addEventListener('click', closePhotoModal);
-      $('photo-form').addEventListener('submit', savePhoto);
-      $('gallery-list').addEventListener('click', function (e) {
-        var btn = e.target.closest('button'); if (!btn) return;
-        var thumb = e.target.closest('.thumb'); if (!thumb) return;
-        var id = thumb.dataset.id;
-        if (btn.dataset.act === 'edit') openPhotoModal(state.gallery.find(function (g) { return g.id === id; }));
-        if (btn.dataset.act === 'del')  deletePhoto(id);
-      });
-
-      console.log('[ADMIN] ✓ All event listeners attached. Ready.');
+    } catch (err) {
+      showFatalError(err);
     }
+  }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () {
-        try { init(); } catch (e) { showFatalError(e); }
-      });
-    } else {
-      try { init(); } catch (e) { showFatalError(e); }
-    }
-
-  } catch (outer) {
-    showFatalError(outer);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
