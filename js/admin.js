@@ -1,22 +1,26 @@
 /**
- * admin.js - Gyan Niketan admin panel
- * Matches admin.html element IDs.
+ * admin.js — Gyan Niketan admin panel
+ * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
  */
 (function () {
   'use strict';
 
-  var TOKEN_KEY = 'gn-gh-token';
-  var REPO_KEY = 'gn-gh-repo';
-  var NOTICE_CATS = ['general', 'exam', 'holiday', 'event'];
+  var TOKEN_KEY  = 'gn-gh-token';
+  var REPO_KEY   = 'gn-gh-repo';
+  var NOTICE_CATS  = ['general', 'exam', 'holiday', 'event'];
   var GALLERY_CATS = ['school', 'classroom', 'lab', 'sports', 'event'];
   var API = 'https://api.github.com/repos/';
+
+  /* ---------- helpers ---------- */
 
   function log() {
     var a = Array.prototype.slice.call(arguments);
     a.unshift('[ADMIN]');
     console.log.apply(console, a);
   }
+
   function $(id) { return document.getElementById(id); }
+
   function show(el) { if (el) el.hidden = false; }
   function hide(el) { if (el) el.hidden = true; }
 
@@ -27,21 +31,29 @@
     el.className = 'admin-status' + (type ? ' is-' + type : '');
   }
 
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+
+  /* ---------- auth ---------- */
+
   function getCreds() {
     return {
       token: localStorage.getItem(TOKEN_KEY) || '',
-      repo: localStorage.getItem(REPO_KEY) || ''
+      repo:  localStorage.getItem(REPO_KEY)  || ''
     };
   }
+
   function isSignedIn() {
     var c = getCreds();
     return !!(c.token && c.repo);
   }
 
   function signIn() {
-    var token = ($('token') || {}).value || '';
-    var repo = ($('repo') || {}).value || '';
-    token = token.trim(); repo = repo.trim();
+    var token = (($('token') || {}).value || '').trim();
+    var repo  = (($('repo')  || {}).value || '').trim();
     if (!token || !repo) {
       setStatus($('login-status'), 'Please enter both repository and token.', 'error');
       return;
@@ -70,6 +82,8 @@
     show($('dash-view'));
     loadData();
   }
+
+  /* ---------- GitHub API ---------- */
 
   function ghFetch(method, path, body) {
     var c = getCreds();
@@ -119,7 +133,14 @@
     return ghFetch('PUT', path, body);
   }
 
-  var state = { notices: [], gallery: [], noticesSha: null, gallerySha: null };
+  /* ---------- state ---------- */
+
+  var state = {
+    notices: [],
+    gallery: [],
+    noticesSha: null,
+    gallerySha: null
+  };
 
   function loadData() {
     setStatus($('status'), 'Loading…', 'info');
@@ -133,9 +154,9 @@
         return { data: [], sha: null };
       })
     ]).then(function (r) {
-      state.notices = r[0].data || [];
+      state.notices   = r[0].data || [];
       state.noticesSha = r[0].sha;
-      state.gallery = r[1].data || [];
+      state.gallery   = r[1].data || [];
       state.gallerySha = r[1].sha;
       setStatus($('status'), '', '');
       renderNotices();
@@ -146,11 +167,7 @@
     });
   }
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-    });
-  }
+  /* ---------- notices ---------- */
 
   function renderNotices() {
     var list = $('notices-list');
@@ -182,39 +199,8 @@
     });
   }
 
-  function renderGallery() {
-    var list = $('gallery-list');
-    if (!list) return;
-    list.innerHTML = '';
-    if (!state.gallery.length) {
-      list.innerHTML = '<p>No photos yet. Click "+ Upload Photo" to add one.</p>';
-      return;
-    }
-    state.gallery.forEach(function (g) {
-      var div = document.createElement('div');
-      div.className = 'admin-gallery-item';
-      div.innerHTML =
-        '<img src="' + esc(g.src) + '" alt="" onerror="this.style.opacity=0.3">' +
-        '<div class="admin-gallery-meta">' +
-          '<strong>' + esc(g.title_en || g.title_np || 'Untitled') + '</strong>' +
-          '<span>' + esc(g.cat || '') + '</span>' +
-        '</div>' +
-        '<div class="admin-item-actions">' +
-          '<button type="button" class="btn btn-outline edit-photo" data-id="' + esc(g.id) + '">Edit</button>' +
-          '<button type="button" class="btn btn-outline delete-photo" data-id="' + esc(g.id) + '">Delete</button>' +
-        '</div>';
-      list.appendChild(div);
-    });
-    Array.prototype.forEach.call(list.querySelectorAll('.edit-photo'), function (b) {
-      b.addEventListener('click', function () { editPhoto(b.getAttribute('data-id')); });
-    });
-    Array.prototype.forEach.call(list.querySelectorAll('.delete-photo'), function (b) {
-      b.addEventListener('click', function () { deletePhoto(b.getAttribute('data-id')); });
-    });
-  }
-
-  /* ----- Notice modal ----- */
   function openNoticeModal() { show($('notice-modal')); }
+
   function closeNoticeModal() {
     hide($('notice-modal'));
     var f = $('notice-form'); if (f) f.reset();
@@ -262,6 +248,7 @@
     if (!notice.title_en && !notice.title_np) { alert('Title is required.'); return; }
     if (NOTICE_CATS.indexOf(notice.category) === -1) { alert('Invalid category.'); return; }
 
+    /* preserve existing schedule on edit */
     for (var i = 0; i < state.notices.length; i++) {
       if (state.notices[i].id === id && state.notices[i].schedule) {
         notice.schedule = state.notices[i].schedule;
@@ -312,8 +299,41 @@
       .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
   }
 
-  /* ----- Photo modal ----- */
+  /* ---------- gallery ---------- */
+
+  function renderGallery() {
+    var list = $('gallery-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!state.gallery.length) {
+      list.innerHTML = '<p>No photos yet. Click "+ Upload Photo" to add one.</p>';
+      return;
+    }
+    state.gallery.forEach(function (g) {
+      var div = document.createElement('div');
+      div.className = 'admin-gallery-item';
+      div.innerHTML =
+        '<img src="' + esc(g.src) + '" alt="" onerror="this.style.opacity=0.3">' +
+        '<div class="admin-gallery-meta">' +
+          '<strong>' + esc(g.title_en || g.title_np || 'Untitled') + '</strong>' +
+          '<span>' + esc(g.cat || '') + '</span>' +
+        '</div>' +
+        '<div class="admin-item-actions">' +
+          '<button type="button" class="btn btn-outline edit-photo" data-id="' + esc(g.id) + '">Edit</button>' +
+          '<button type="button" class="btn btn-outline delete-photo" data-id="' + esc(g.id) + '">Delete</button>' +
+        '</div>';
+      list.appendChild(div);
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.edit-photo'), function (b) {
+      b.addEventListener('click', function () { editPhoto(b.getAttribute('data-id')); });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('.delete-photo'), function (b) {
+      b.addEventListener('click', function () { deletePhoto(b.getAttribute('data-id')); });
+    });
+  }
+
   function openPhotoModal() { show($('photo-modal')); }
+
   function closePhotoModal() {
     hide($('photo-modal'));
     var f = $('photo-form'); if (f) f.reset();
@@ -345,6 +365,7 @@
     var titleNp = $('p-title-np').value.trim();
     var existingSrc = $('p-existing-src').value;
     var fileInput = $('p-file');
+
     if (!titleEn && !titleNp) { alert('Title is required.'); return; }
     if (GALLERY_CATS.indexOf(cat) === -1) { alert('Invalid category.'); return; }
 
@@ -353,6 +374,7 @@
       updateGalleryEntry(id, cat, titleEn, titleNp, existingSrc);
       return;
     }
+
     var file = fileInput.files[0];
     if (file.size > 2 * 1024 * 1024) { alert('Photo must be under 2 MB.'); return; }
 
@@ -405,7 +427,8 @@
       .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
   }
 
-  /* ----- CSV / SheetJS ----- */
+  /* ---------- CSV / SheetJS ---------- */
+
   function loadSheetJS() {
     if (window.XLSX) return Promise.resolve(window.XLSX);
     return new Promise(function (resolve, reject) {
@@ -490,7 +513,8 @@
     return out;
   }
 
-  /* ----- Tabs ----- */
+  /* ---------- tabs ---------- */
+
   function setupTabs() {
     var tabs = document.querySelectorAll('.admin-tabs button[data-tab]');
     Array.prototype.forEach.call(tabs, function (btn) {
@@ -505,7 +529,8 @@
     });
   }
 
-  /* ----- Init ----- */
+  /* ---------- init ---------- */
+
   function init() {
     log('Script starting…');
     try {
@@ -514,16 +539,16 @@
       if (missing.length) log('Missing elements: ' + missing.join(', '));
       log('DOMContentLoaded — wiring up UI');
 
-      if ($('login-btn')) $('login-btn').addEventListener('click', signIn);
+      if ($('login-btn'))   $('login-btn').addEventListener('click', signIn);
       if ($('signout-btn')) $('signout-btn').addEventListener('click', signOut);
 
       if ($('notice-form')) $('notice-form').addEventListener('submit', saveNotice);
-      if ($('photo-form')) $('photo-form').addEventListener('submit', savePhoto);
+      if ($('photo-form'))  $('photo-form').addEventListener('submit', savePhoto);
 
       if ($('add-notice-btn')) $('add-notice-btn').addEventListener('click', openNoticeModal);
-      if ($('add-photo-btn')) $('add-photo-btn').addEventListener('click', openPhotoModal);
-      if ($('notice-cancel')) $('notice-cancel').addEventListener('click', closeNoticeModal);
-      if ($('photo-cancel')) $('photo-cancel').addEventListener('click', closePhotoModal);
+      if ($('add-photo-btn'))  $('add-photo-btn').addEventListener('click', openPhotoModal);
+      if ($('notice-cancel'))  $('notice-cancel').addEventListener('click', closeNoticeModal);
+      if ($('photo-cancel'))   $('photo-cancel').addEventListener('click', closePhotoModal);
 
       if ($('n-cat')) $('n-cat').addEventListener('change', toggleSchedule);
 
