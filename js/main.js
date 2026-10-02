@@ -229,12 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
         '<footer class="letterhead-sign">' +
           '<div class="sign-block">' +
             '<span class="sign-line"></span>' +
-            '<strong>Class Teacher</strong>' +
-            '<span>Gyan Niketan</span>' +
-          '</div>' +
-          '<div class="sign-block">' +
-            '<span class="sign-line"></span>' +
-            '<strong>Mr. Ram Prasad Yadav</strong>' +
+            '<strong>Mrs. Bimala Singh</strong>' +
             '<span>Principal</span>' +
           '</div>' +
         '</footer>' +
