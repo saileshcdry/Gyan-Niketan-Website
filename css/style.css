@@ -1,10 +1,6 @@
 /* =========================================================
    Gyan Niketan English Secondary School
    Complete Main Stylesheet — style.css
-   Covers: globals, header, footer, home + hero photo,
-           all inner pages, notice letterhead, gallery lightbox.
-   Palette: Navy #0A2342 / Gold #F4B400 / White / Off-white
-   Fonts:   Poppins (headings) · Inter (body)
    ========================================================= */
 
 /* =========================================================
@@ -184,7 +180,7 @@ p  { margin: 0 0 1em; }
 .link-arrow:hover .ic { transform: translateX(4px); }
 
 /* =========================================================
-   4. HEADER — LOCKED LAYOUT
+   4. HEADER
    ========================================================= */
 .site-header {
   position: sticky; top: 0; z-index: 80;
@@ -264,7 +260,6 @@ p  { margin: 0 0 1em; }
   letter-spacing: .04em; text-transform: uppercase;
 }
 
-/* Nav — locked: never wraps; active state never changes width */
 .nav { margin-left: auto; }
 .nav-list {
   list-style: none;
@@ -354,7 +349,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   5. HERO (home) — with school photo support
+   5. HERO
    ========================================================= */
 .hero {
   position: relative;
@@ -364,8 +359,6 @@ p  { margin: 0 0 1em; }
   isolation: isolate;
   min-height: 480px;
 }
-
-/* Default gradient background (used only if no photo) */
 .hero-media {
   position: absolute;
   inset: 0;
@@ -375,8 +368,6 @@ p  { margin: 0 0 1em; }
     radial-gradient(ellipse 55% 60% at 90% 100%, rgba(26,63,117,.75), transparent 60%),
     linear-gradient(135deg, #0A2342 0%, #10305c 50%, #1a3f75 100%);
 }
-
-/* Subtle grid pattern used ONLY on the plain gradient hero */
 .hero:not(.hero-with-photo) .hero-media::after {
   content: "";
   position: absolute; inset: 0;
@@ -387,14 +378,11 @@ p  { margin: 0 0 1em; }
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at 70% 40%, #000 30%, transparent 75%);
 }
-
-/* ---- Hero WITH photo ---- */
 .hero-with-photo .hero-media {
   background: none !important;
   background-image: none !important;
 }
 .hero-with-photo .hero-media::after { display: none; }
-
 .hero-photo {
   position: absolute;
   inset: 0;
@@ -405,7 +393,6 @@ p  { margin: 0 0 1em; }
   display: block;
   z-index: 0;
 }
-
 .hero-photo-overlay {
   position: absolute;
   inset: 0;
@@ -418,9 +405,7 @@ p  { margin: 0 0 1em; }
   );
   pointer-events: none;
 }
-
 .hero-inner { position: relative; max-width: 780px; z-index: 2; }
-
 .hero-badge {
   display: inline-flex; align-items: center; gap: .5em;
   background: rgba(244,180,0,.15);
@@ -472,7 +457,6 @@ p  { margin: 0 0 1em; }
 .hero-points li { display: inline-flex; align-items: center; gap: .5em; }
 .hero-points .ic { color: var(--gold); font-size: 1.1rem; }
 
-/* Mobile: stronger overlay + shift focus upward so building stays visible */
 @media (max-width: 720px) {
   .hero-photo { object-position: center 30%; }
 }
@@ -547,7 +531,7 @@ p  { margin: 0 0 1em; }
 .section-sub { color: var(--gray-500); margin: 0; font-size: 1.02rem; }
 
 /* =========================================================
-   8. PAGE HERO (inner pages)
+   8. PAGE HERO
    ========================================================= */
 .page-hero {
   background:
@@ -978,7 +962,6 @@ p  { margin: 0 0 1em; }
   text-transform: uppercase;
 }
 
-/* Team group photo (About page — faculty section) */
 .team-photo {
   margin: 0 auto 2.6rem;
   max-width: 880px;
@@ -1045,7 +1028,7 @@ p  { margin: 0 0 1em; }
 .vm-card p { margin: 0; color: var(--gray-700); }
 
 /* =========================================================
-   16. TABLES (admissions criteria)
+   16. TABLES
    ========================================================= */
 .info-table {
   width: 100%;
@@ -1080,7 +1063,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   17. FORMS (admissions + contact)
+   17. FORMS
    ========================================================= */
 .form-card {
   background: var(--white);
@@ -1277,7 +1260,7 @@ p  { margin: 0 0 1em; }
 .contact-card a:hover { color: var(--gold-600); }
 
 /* =========================================================
-   20. SECTION CTA / DOWNLOADS
+   20. SECTION CTA
    ========================================================= */
 .section-cta {
   background: var(--off-white);
@@ -1439,9 +1422,6 @@ p  { margin: 0 0 1em; }
   max-width: 100%;
 }
 
-/* Single centered logo watermark.
-   A real <img> (not a CSS background) so it prints even if the
-   browser's "Background graphics" option is unchecked. */
 .letterhead-watermark {
   position: absolute;
   top: 50%;
@@ -1458,7 +1438,6 @@ p  { margin: 0 0 1em; }
   -webkit-print-color-adjust: exact;
 }
 
-/* Keep letterhead content above the watermark */
 .letterhead > :not(.letterhead-watermark) {
   position: relative;
   z-index: 1;
@@ -1592,11 +1571,15 @@ p  { margin: 0 0 1em; }
   padding-left: 10px;
 }
 
-/* Single Principal signature — right-aligned */
+/* =========================================================
+   SIGNATURE — pinned to BOTTOM-RIGHT
+   ========================================================= */
 .letterhead-sign {
   display: flex;
   justify-content: flex-end;
-  margin-top: 2.4rem;
+  align-items: flex-end;
+  margin-top: 4rem;          /* pushes the signature down toward the footnote */
+  padding-right: 10px;       /* small inset from right edge */
   font-family: 'Inter', sans-serif;
   font-size: .88rem;
 }
@@ -1724,7 +1707,8 @@ p  { margin: 0 0 1em; }
   .letterhead-head { grid-template-columns: 64px 1fr 64px; gap: 10px; }
   .letterhead-logo { width: 60px; height: 60px; }
   .letterhead-school h1 { font-size: 1.05rem; }
-  .letterhead-sign { justify-content: center; }
+  /* Keep signature on the right even on mobile, just nudge inset */
+  .letterhead-sign { margin-top: 3rem; padding-right: 0; }
 }
 
 /* =========================================================
@@ -1867,7 +1851,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   27. RESPONSIVE — TABLET (≥ 640px)
+   27. RESPONSIVE — TABLET
    ========================================================= */
 @media (min-width: 640px) {
   .stats-grid   { grid-template-columns: repeat(4, 1fr); gap: 20px; }
@@ -1883,7 +1867,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   28. RESPONSIVE — DESKTOP (≥ 980px)
+   28. RESPONSIVE — DESKTOP
    ========================================================= */
 @media (min-width: 980px) {
   .welcome-grid { grid-template-columns: 5fr 7fr; gap: 60px; }
@@ -1897,7 +1881,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   29. MOBILE NAVIGATION (≤ 979px)
+   29. MOBILE NAVIGATION
    ========================================================= */
 @media (max-width: 979px) {
   .topbar-hide { display: none !important; }
@@ -1959,7 +1943,7 @@ p  { margin: 0 0 1em; }
 }
 
 /* =========================================================
-   30. SMALL PHONES (≤ 420px)
+   30. SMALL PHONES
    ========================================================= */
 @media (max-width: 420px) {
   .brand-text small { font-size: .66rem; }
@@ -1974,8 +1958,6 @@ p  { margin: 0 0 1em; }
    31. PRINT
    ========================================================= */
 @media print {
-  /* Default A4 portrait. JS overrides this with a runtime <style>
-     when the user toggles to landscape in the notice modal. */
   @page { size: A4 portrait; margin: 15mm 12mm; }
 
   html, body {
@@ -1984,7 +1966,6 @@ p  { margin: 0 0 1em; }
     padding: 0 !important;
   }
 
-  /* Only applies when a notice modal is open (class added by main.js) */
   html.gn-printing-notice body > *:not(#gn-notice-modal) {
     display: none !important;
   }
