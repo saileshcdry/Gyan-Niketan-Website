@@ -23,7 +23,7 @@
   <p>Sign in with your GitHub account to manage notices and photos.</p>
 
   <label for="repo">GitHub repository (owner/name)</label>
-  <input id="repo" type="text" placeholder="saleshcdry/Gyan-Niketan-Website" autocomplete="off">
+  <input id="repo" type="text" placeholder="saileshcdry/Gyan-Niketan-Website" autocomplete="off">
 
   <label for="token">Personal Access Token</label>
   <input id="token" type="password" placeholder="github_pat_…" autocomplete="off">
@@ -138,21 +138,6 @@
       <div class="field">
         <label for="n-ex-np">Message (Nepali)</label>
         <textarea id="n-ex-np" rows="3"></textarea>
-      </div>
-
-      <!-- Schedule upload — only visible when Category = Examination -->
-      <div id="n-schedule-wrap" hidden>
-        <div class="field">
-          <label>Exam schedule file (CSV or Excel)</label>
-          <input type="file" id="n-schedule-file"
-                 accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-          <p class="help" style="margin-top:6px;">
-            Expected columns (any order): <strong>Date, Time, Subject, Grade</strong>.
-            Example row: <code>2026-04-24, 10:00 AM, Mathematics, 10</code>.
-            In Excel, save as <strong>.xlsx</strong> or CSV. The first row should be the header.
-          </p>
-        </div>
-        <div id="n-schedule-preview"></div>
       </div>
 
       <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
