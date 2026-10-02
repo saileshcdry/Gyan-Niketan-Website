@@ -1,13 +1,7 @@
 /**
  * admin.js — Gyan Niketan admin panel
  * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
- *
- * Schedule parser handles 3 layouts:
- *   A) header row with field names: Date | Time | Subject | Grade
- *   B) transposed: field names in column 0, data across columns
- *   C) matrix: column 0 = Class/Grade, other columns = dates, cells = subjects.
- *      Multiple matrix sections in one file are supported (separated by blank rows
- *      or by another "Class | dates..." header row).
+ * Schedule upload / parsing has been removed — notices are title + message only.
  */
 (function () {
   'use strict';
@@ -200,12 +194,6 @@
     var f = $('notice-form'); if (f) f.reset();
     if ($('n-id')) $('n-id').value = '';
     if ($('notice-modal-title')) $('notice-modal-title').textContent = 'Add Notice';
-    hide($('n-schedule-wrap'));
-    if ($('n-schedule-preview')) $('n-schedule-preview').innerHTML = '';
-  }
-  function toggleSchedule() {
-    if ($('n-cat') && $('n-cat').value === 'exam') show($('n-schedule-wrap'));
-    else hide($('n-schedule-wrap'));
   }
 
   function editNotice(id) {
@@ -222,7 +210,6 @@
     $('n-title-np').value = n.title_np || '';
     $('n-ex-en').value = n.message_en || '';
     $('n-ex-np').value = n.message_np || '';
-    toggleSchedule();
     openNoticeModal();
   }
 
@@ -241,22 +228,12 @@
     if (!notice.title_en && !notice.title_np) { alert('Title is required.'); return; }
     if (NOTICE_CATS.indexOf(notice.category) === -1) { alert('Invalid category.'); return; }
 
+    /* preserve any existing schedule object on edit — we no longer create new ones */
     for (var i = 0; i < state.notices.length; i++) {
       if (state.notices[i].id === id && state.notices[i].schedule) {
         notice.schedule = state.notices[i].schedule;
         break;
       }
-    }
-
-    var fileInput = $('n-schedule-file');
-    if (notice.category === 'exam' && fileInput && fileInput.files && fileInput.files[0]) {
-      parseScheduleFile(fileInput.files[0]).then(function (rows) {
-        notice.schedule = rows;
-        commitNotice(notice);
-      }).catch(function (err) {
-        alert('Schedule parse error: ' + err.message);
-      });
-      return;
     }
     commitNotice(notice);
   }
@@ -418,294 +395,6 @@
       .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
   }
 
-  /* ============================================================
-     CSV / Excel schedule parser — 3 layouts
-     ============================================================ */
-
-  function loadSheetJS() {
-    if (window.XLSX) return Promise.resolve(window.XLSX);
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
-      s.onload = function () { resolve(window.XLSX); };
-      s.onerror = function () { reject(new Error('Failed to load SheetJS')); };
-      document.head.appendChild(s);
-    });
-  }
-
-  function parseScheduleFile(file) {
-    var ext = file.name.split('.').pop().toLowerCase();
-    if (ext === 'csv') {
-      return new Promise(function (resolve, reject) {
-        var r = new FileReader();
-        r.onload = function () {
-          try { resolve(normalizeSchedule(parseCSV(r.result))); }
-          catch (e) { reject(e); }
-        };
-        r.onerror = function () { reject(new Error('File read error')); };
-        r.readAsText(file);
-      });
-    }
-    return loadSheetJS().then(function (XLSX) {
-      return new Promise(function (resolve, reject) {
-        var r = new FileReader();
-        r.onload = function () {
-          try {
-            var data = new Uint8Array(r.result);
-            var wb = XLSX.read(data, { type: 'array', cellDates: false });
-            var ws = wb.Sheets[wb.SheetNames[0]];
-            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: true });
-            resolve(normalizeSchedule(rows));
-          } catch (e) { reject(e); }
-        };
-        r.onerror = function () { reject(new Error('File read error')); };
-        r.readAsArrayBuffer(file);
-      });
-    });
-  }
-
-  /* RFC-4180-ish CSV parser */
-  function parseCSV(text) {
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    var rows = [], cur = [], field = '', inQ = false;
-    for (var i = 0; i < text.length; i++) {
-      var ch = text[i];
-      if (inQ) {
-        if (ch === '"') {
-          if (text[i + 1] === '"') { field += '"'; i++; }
-          else inQ = false;
-        } else field += ch;
-      } else {
-        if (ch === '"') inQ = true;
-        else if (ch === ',') { cur.push(field); field = ''; }
-        else if (ch === '\r') { /* skip */ }
-        else if (ch === '\n') { cur.push(field); rows.push(cur); cur = []; field = ''; }
-        else field += ch;
-      }
-    }
-    if (field.length || cur.length) { cur.push(field); rows.push(cur); }
-    return rows;
-  }
-
-  function normHeader(s) {
-    return String(s == null ? '' : s)
-      .replace(/\uFEFF/g, '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '');
-  }
-
-  var FIELD_ALIASES = {
-    date:    ['date','examdate','examday','miti','datebs','datead','datebsad'],
-    time:    ['time','examtime','samaya','shift','slot'],
-    subject: ['subject','subjectname','paper','sub','vishay','visay','topic'],
-    grade:   ['grade','class','classname','level','kaksha','std','standard','section']
-  };
-
-  function findCol(headers, aliases) {
-    var i, j;
-    for (i = 0; i < headers.length; i++) {
-      for (j = 0; j < aliases.length; j++) if (headers[i] === aliases[j]) return i;
-    }
-    for (i = 0; i < headers.length; i++) {
-      if (!headers[i]) continue;
-      for (j = 0; j < aliases.length; j++) if (headers[i].indexOf(aliases[j]) !== -1) return i;
-    }
-    return -1;
-  }
-
-  function whichField(normalized) {
-    var keys = Object.keys(FIELD_ALIASES);
-    for (var i = 0; i < keys.length; i++) {
-      var list = FIELD_ALIASES[keys[i]];
-      for (var j = 0; j < list.length; j++) if (normalized === list[j]) return keys[i];
-    }
-    return null;
-  }
-
-  function cellStr(v) {
-    if (v == null) return '';
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
-    return String(v).trim();
-  }
-
-  function looksLikeDate(v) {
-    if (v instanceof Date) return true;
-    var s = cellStr(v);
-    if (!s) return false;
-    return /^\d{2,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/.test(s);
-  }
-
-  function normalizeSchedule(rows) {
-    if (!rows || !rows.length) return [];
-    var a = tryRowHeaders(rows);    if (a) return a;
-    var b = tryColumnHeaders(rows); if (b) return b;
-    var c = tryMatrix(rows);        if (c) return c;
-    var preview = rows.slice(0, 4).map(function (r) { return (r || []).join(' | '); }).join('  //  ');
-    throw new Error('Could not detect a known layout. First rows: ' + preview);
-  }
-
-  /* --- A: header row with field names --- */
-  function tryRowHeaders(rows) {
-    for (var r = 0; r < Math.min(rows.length, 5); r++) {
-      var headers = (rows[r] || []).map(normHeader);
-      var nonEmpty = headers.filter(function (x) { return x; });
-      if (nonEmpty.length < 2) continue;
-
-      var iD = findCol(headers, FIELD_ALIASES.date);
-      var iT = findCol(headers, FIELD_ALIASES.time);
-      var iS = findCol(headers, FIELD_ALIASES.subject);
-      var iG = findCol(headers, FIELD_ALIASES.grade);
-      if (iD === -1 || iS === -1 || iG === -1) continue;
-
-      var out = [];
-      for (var i = r + 1; i < rows.length; i++) {
-        var row = rows[i] || [];
-        var date    = cellStr(row[iD]);
-        var time    = iT !== -1 ? cellStr(row[iT]) : '';
-        var subject = cellStr(row[iS]);
-        var grade   = cellStr(row[iG]);
-        if (!date && !time && !subject && !grade) continue;
-        out.push({ date: date, time: time, subject: subject, grade: grade });
-      }
-      if (out.length) {
-        log('Schedule (A: row-headers): ' + out.length + ' rows');
-        return out;
-      }
-    }
-    return null;
-  }
-
-  /* --- B: field names in column 0, data across columns --- */
-  function tryColumnHeaders(rows) {
-    var fieldRow = {};
-    var scan = Math.min(rows.length, 10);
-    for (var r = 0; r < scan; r++) {
-      var first = normHeader((rows[r] || [])[0]);
-      if (!first) continue;
-      var f = whichField(first);
-      if (f && fieldRow[f] == null) fieldRow[f] = r;
-    }
-    if (fieldRow.date == null || fieldRow.subject == null || fieldRow.grade == null) return null;
-
-    var maxCols = 0;
-    Object.keys(fieldRow).forEach(function (k) {
-      var len = (rows[fieldRow[k]] || []).length;
-      if (len > maxCols) maxCols = len;
-    });
-
-    var out = [];
-    for (var c = 1; c < maxCols; c++) {
-      var date    = cellStr((rows[fieldRow.date]    || [])[c]);
-      var time    = fieldRow.time != null ? cellStr((rows[fieldRow.time] || [])[c]) : '';
-      var subject = cellStr((rows[fieldRow.subject] || [])[c]);
-      var grade   = cellStr((rows[fieldRow.grade]   || [])[c]);
-      if (!date && !time && !subject && !grade) continue;
-      out.push({ date: date, time: time, subject: subject, grade: grade });
-    }
-    if (out.length) {
-      log('Schedule (B: transposed): ' + out.length + ' rows');
-      return out;
-    }
-    return null;
-  }
-
-  /* --- C: matrix ---
-       Class   | 2083/06/22 | 2083/06/23 | ...
-       Nine    | Nepali     | Math       | ...
-       (blank row or another "Class | dates" header starts a new section)
-     Time labels are captured if a lone row above a section contains a time-like value. */
-  function tryMatrix(rows) {
-    var out = [];
-    var currentTime = '';
-    var i = 0;
-
-    while (i < rows.length) {
-      var row = rows[i] || [];
-
-      var t = detectTimeLabel(row);
-      if (t) { currentTime = t; i++; continue; }
-
-      if (isMatrixHeaderRow(row)) {
-        var dateCols = extractDateColsFromHeader(row);
-        if (dateCols.length) {
-          i++;
-          while (i < rows.length) {
-            var drow = rows[i] || [];
-
-            if (!rowHasData(drow)) { i++; continue; }
-            if (isMatrixHeaderRow(drow)) break;
-            if (detectTimeLabel(drow)) break;
-
-            var grade = cellStr(drow[0]);
-            if (grade) {
-              for (var d = 0; d < dateCols.length; d++) {
-                var dc = dateCols[d];
-                var subj = cellStr(drow[dc.col]);
-                if (!subj) continue;
-                out.push({ date: dc.date, time: currentTime, subject: subj, grade: grade });
-              }
-            }
-            i++;
-          }
-          continue;
-        }
-      }
-      i++;
-    }
-
-    if (out.length) {
-      log('Schedule (C: matrix): ' + out.length + ' rows');
-      return out;
-    }
-    return null;
-  }
-
-  function rowHasData(row) {
-    if (!row) return false;
-    for (var x = 0; x < row.length; x++) {
-      if (cellStr(row[x])) return true;
-    }
-    return false;
-  }
-
-  function isMatrixHeaderRow(row) {
-    if (!row || row.length < 2) return false;
-    var first = normHeader(row[0]);
-    if (!first) return false;
-    for (var k = 0; k < FIELD_ALIASES.grade.length; k++) {
-      if (first === FIELD_ALIASES.grade[k]) return true;
-    }
-    return false;
-  }
-
-  function extractDateColsFromHeader(row) {
-    var cols = [];
-    for (var c = 1; c < row.length; c++) {
-      if (looksLikeDate(row[c])) cols.push({ col: c, date: cellStr(row[c]) });
-    }
-    return cols;
-  }
-
-  function detectTimeLabel(row) {
-    if (!row || !row.length) return '';
-    var nonEmpty = [];
-    for (var i = 0; i < row.length; i++) {
-      var v = cellStr(row[i]);
-      if (v) nonEmpty.push(v);
-    }
-    if (!nonEmpty.length || nonEmpty.length > 2) return '';
-    var joined = nonEmpty.join(' ').trim();
-
-    var m = joined.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/);
-    if (m) return m[1].toUpperCase().replace(/\s+/g, ' ');
-
-    if (/^(morning|afternoon|evening|primary|secondary|basic|pre.?primary|shift\s*\d+|time\s*\d*|first\s*shift|second\s*shift|third\s*shift)$/i.test(joined)) {
-      return joined;
-    }
-    return '';
-  }
-
   /* ---------- tabs ---------- */
 
   function setupTabs() {
@@ -742,8 +431,6 @@
       if ($('add-photo-btn'))  $('add-photo-btn').addEventListener('click', openPhotoModal);
       if ($('notice-cancel'))  $('notice-cancel').addEventListener('click', closeNoticeModal);
       if ($('photo-cancel'))   $('photo-cancel').addEventListener('click', closePhotoModal);
-
-      if ($('n-cat')) $('n-cat').addEventListener('change', toggleSchedule);
 
       setupTabs();
 
