@@ -31,7 +31,9 @@
 }
 .admin-tabs button.is-active { background: var(--navy); color: var(--white); border-color: var(--navy); }
 
+/* ---------- Notices list ---------- */
 .admin-list { display: grid; gap: 12px; }
+
 .admin-row {
   display: grid; grid-template-columns: 1fr auto; gap: 14px;
   padding: 14px 16px; border: 1px solid var(--gray-100); border-radius: 12px;
@@ -48,24 +50,39 @@
 .admin-row button:hover { border-color: var(--navy); }
 .admin-row button.danger:hover { background: #fef2f2; border-color: #ef4444; }
 
+/* ---------- Gallery grid ---------- */
 .admin-gallery-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px;
 }
 .admin-gallery-grid .thumb {
-  border-radius: 12px; overflow: hidden; border: 1px solid var(--gray-100); background: var(--off-white);
+  border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--gray-100); background: var(--off-white);
 }
-.admin-gallery-grid .thumb img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+.admin-gallery-grid .thumb img {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+}
 .admin-gallery-grid .thumb .cap {
   padding: 8px 10px; font-size: .78rem; color: var(--navy);
   display: flex; justify-content: space-between; align-items: center; gap: 6px;
 }
-.admin-gallery-grid .thumb button {
-  background: transparent; border: 0; color: #b91c1c; font-size: .78rem; cursor: pointer;
+.admin-gallery-grid .thumb .cap-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.admin-gallery-grid .thumb .cap-actions {
+  display: flex; gap: 8px; flex-shrink: 0;
+}
+.admin-gallery-grid .thumb button {
+  background: transparent; border: 0; padding: 0;
+  color: var(--navy); font-size: .78rem; font-weight: 500; cursor: pointer;
+}
+.admin-gallery-grid .thumb button:hover { text-decoration: underline; }
+.admin-gallery-grid .thumb button.delete-photo { color: #b91c1c; }
 
+/* ---------- Toolbar & misc ---------- */
 .admin-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
 .admin-body .hint { color: var(--gray-500); font-size: .85rem; }
 
+/* ---------- Modals ---------- */
 .admin-modal-backdrop {
   position: fixed; inset: 0; background: rgba(6,24,49,.55); z-index: 200;
   display: grid; place-items: center; padding: 20px;
@@ -78,6 +95,7 @@
 }
 .admin-modal h3 { margin-top: 0; }
 
+/* ---------- Status banner ---------- */
 .admin-status {
   padding: 12px 16px; border-radius: 10px; font-size: .9rem; margin: 12px 0;
 }
@@ -85,6 +103,7 @@
 .admin-status.error { background: #fdecec; color: #a01818; }
 .admin-status[hidden] { display: none; }
 
+/* ---------- Login screen ---------- */
 .admin-login { max-width: 480px; margin: 80px auto; }
 .admin-login label { display: block; margin-top: 14px; font-weight: 600; font-size: .9rem; color: var(--navy); }
 .admin-login input {

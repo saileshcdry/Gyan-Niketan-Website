@@ -47,10 +47,24 @@
   {
     "id": "n-1790932646121",
     "date": "2026-09-29",
-    "category": "exam",
+    "cat": "exam",
     "title_en": "2nd Terminal Examination-2083",
     "title_np": "दोस्रो त्रैमासिक परीक्षा-२०८३",
-    "message_en": "Student's fee must be cleared by 18th Ashoj in order to receive the Admit Card; otherwise students are not allowed to take the exam. School will be closed from 31st Ashoj to 8th Kartik 2083, and school will reopen on 9th Kartik. Results will be published on 13th Kartik.\n\nNote: Classes Nine and Ten have their exams at 7:00 AM. All other classes (P.G. through Eight) have their exams at 10:00 AM.",
-    "message_np": "परीक्षामा सहभागी हुनका लागि विद्यार्थीहरूले असोज १८ गतेभित्र शुल्क बुझाउनु पर्नेछ, अन्यथा प्रवेश पत्र प्राप्त गर्न सकिने छैन। विद्यालय असोज ३१ गतेदेखि कार्तिक ८ गतेसम्म बन्द रहनेछ र कार्तिक ९ गतेबाट पुनः खुल्नेछ। नतिजा कार्तिक १३ गते प्रकाशित हुनेछ।\n\nनोट: कक्षा ९ र १० को परीक्षा बिहान ७:०० बजे हुनेछ। अन्य सबै कक्षा (P.G. देखि आठ सम्म) को परीक्षा बिहान १०:०० बजे हुनेछ।"
+    "excerpt_en": "Student's fee must be cleared by 18th Ashoj in order to receive the Admit Card; otherwise students are not allowed to take the exam. School will be closed from 31st Ashoj to 8th Kartik 2083, and school will reopen on 9th Kartik. Results will be published on 13th Kartik.\n\nNote: Classes Nine and Ten have their exams at 7:00 AM. All other classes (P.G. through Eight) have their exams at 10:00 AM.",
+    "excerpt_np": "परीक्षामा सहभागी हुनका लागि विद्यार्थीहरूले असोज १८ गतेभित्र शुल्क बुझाउनु पर्नेछ, अन्यथा प्रवेश पत्र प्राप्त गर्न सकिने छैन। विद्यालय असोज ३१ गतेदेखि कार्तिक ८ गतेसम्म बन्द रहनेछ र कार्तिक ९ गतेबाट पुनः खुल्नेछ। नतिजा कार्तिक १३ गते प्रकाशित हुनेछ।\n\nनोट: कक्षा ९ र १० को परीक्षा बिहान ७:०० बजे हुनेछ। अन्य सबै कक्षा (P.G. देखि आठ सम्म) को परीक्षा बिहान १०:०० बजे हुनेछ।",
+    "schedule": {
+      "type": "matrix",
+      "dateLabel": "Date (2083)",
+      "classes": ["P.G.", "Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+      "rows": [
+        { "date": "06/22", "subjects": ["English", "English", "English", "English", "English", "Computer", "Math", "Science", "Math", "Science", "C-Math", "Nepali", "Nepali", "Account"] },
+        { "date": "06/23", "subjects": ["English Oral", "English Oral", "Nepali", "Nepali", "Nepali", "English", "Computer", "Social", "Computer", "Social", "Health", "Opt Math", "Math", "Nepali"] },
+        { "date": "06/26", "subjects": ["Nepali", "Nepali", "Science", "Math", "Science", "Math", "Social", "Computer", "Health", "Nepali", "Social", "Science", "English", "Math"] },
+        { "date": "06/27", "subjects": ["Nepali Oral", "Nepali Oral", "Dictation", "Science", "Math", "Social", "Science", "Health", "English", "Opt Math", "Science", "Social", "Account", "Opt Math"] },
+        { "date": "06/28", "subjects": ["Hygiene", "Math Oral", "Drawing", "Dictation", "Social", "Science", "Nepali", "English", "Nepali", "English", "English", "Health", "Science", "Social"] },
+        { "date": "06/29", "subjects": ["Math Oral", "Hygiene", "Table", "Drawing", "Assignment", "Assignment", "English", "Nepali", "Social", "Health", "Opt Math", "English", "Opt Math", "Science"] },
+        { "date": "06/30", "subjects": ["Math", "Math", "—", "Table", "Computer", "Nepali", "Assignment", "Math", "Science", "C-Math", "Nepali", "Math", "Social", "English"] }
+      ]
+    }
   }
 ]

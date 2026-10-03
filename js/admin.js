@@ -1,7 +1,11 @@
 /**
  * admin.js — Gyan Niketan admin panel
  * Matches admin.html element IDs. Uses `hidden` attribute for view toggling.
- * Schedule upload / parsing has been removed — notices are title + message only.
+ * Notices use the public schema: { id, date, cat, title_en, title_np, excerpt_en, excerpt_np, schedule? }
+ * Markup emitted here matches the selectors in css/admin.css.
+ *
+ * Exam routines (schedules) can be uploaded as CSV or Excel and are
+ * stored on the notice as { type: 'matrix', dateLabel, classes, rows }.
  */
 (function () {
   'use strict';
@@ -122,6 +126,15 @@
     return ghFetch('PUT', path, body);
   }
 
+  /* ---------- schema normalisation ---------- */
+  function normalizeNotice(n) {
+    if (!n) return n;
+    if (!n.cat && n.category) n.cat = n.category;
+    if (!n.excerpt_en && n.message_en) n.excerpt_en = n.message_en;
+    if (!n.excerpt_np && n.message_np) n.excerpt_np = n.message_np;
+    return n;
+  }
+
   /* ---------- state ---------- */
 
   var state = {
@@ -130,6 +143,10 @@
     noticesSha: null,
     gallerySha: null
   };
+
+  /* Schedule currently attached to the notice being edited/created.
+     null = none. Object with { type: 'matrix', ... } = attached. */
+  var currentSchedule = null;
 
   function loadData() {
     setStatus($('status'), 'Loading…', 'info');
@@ -143,7 +160,7 @@
         return { data: [], sha: null };
       })
     ]).then(function (r) {
-      state.notices    = r[0].data || [];
+      state.notices    = (r[0].data || []).map(normalizeNotice);
       state.noticesSha = r[0].sha;
       state.gallery    = r[1].data || [];
       state.gallerySha = r[1].sha;
@@ -167,16 +184,22 @@
       return;
     }
     state.notices.forEach(function (n) {
+      var hasSched = !!(n.schedule && (
+        (n.schedule.type === 'matrix' && n.schedule.rows && n.schedule.rows.length) ||
+        (Array.isArray(n.schedule) && n.schedule.length)
+      ));
       var div = document.createElement('div');
-      div.className = 'admin-item';
+      div.className = 'admin-row';
       div.innerHTML =
-        '<div class="admin-item-info">' +
-          '<strong>' + esc(n.title_en || n.title_np || 'Untitled') + '</strong>' +
-          '<span>' + esc(n.date || '') + ' · ' + esc(n.category || '') + '</span>' +
+        '<div>' +
+          '<div class="title">' + esc(n.title_en || n.title_np || 'Untitled') + '</div>' +
+          '<div class="meta">' + esc(n.date || '') + ' · ' + esc(n.cat || '') +
+            (hasSched ? ' · 📅 routine attached' : '') +
+          '</div>' +
         '</div>' +
-        '<div class="admin-item-actions">' +
-          '<button type="button" class="btn btn-outline edit-notice" data-id="' + esc(n.id) + '">Edit</button>' +
-          '<button type="button" class="btn btn-outline delete-notice" data-id="' + esc(n.id) + '">Delete</button>' +
+        '<div class="actions">' +
+          '<button type="button" class="edit-notice" data-id="' + esc(n.id) + '">Edit</button>' +
+          '<button type="button" class="danger delete-notice" data-id="' + esc(n.id) + '">Delete</button>' +
         '</div>';
       list.appendChild(div);
     });
@@ -188,12 +211,22 @@
     });
   }
 
-  function openNoticeModal() { show($('notice-modal')); }
+  function openNoticeModal() {
+    show($('notice-modal'));
+    currentSchedule = null;
+    var fileInput = $('n-schedule-file');
+    if (fileInput) fileInput.value = '';
+    updateScheduleStatus();
+  }
   function closeNoticeModal() {
     hide($('notice-modal'));
     var f = $('notice-form'); if (f) f.reset();
     if ($('n-id')) $('n-id').value = '';
     if ($('notice-modal-title')) $('notice-modal-title').textContent = 'Add Notice';
+    currentSchedule = null;
+    var fileInput = $('n-schedule-file');
+    if (fileInput) fileInput.value = '';
+    updateScheduleStatus();
   }
 
   function editNotice(id) {
@@ -205,11 +238,21 @@
     $('notice-modal-title').textContent = 'Edit Notice';
     $('n-id').value = n.id || '';
     $('n-date').value = n.date || '';
-    $('n-cat').value = n.category || 'general';
+    $('n-cat').value = n.cat || n.category || 'general';
     $('n-title-en').value = n.title_en || '';
     $('n-title-np').value = n.title_np || '';
-    $('n-ex-en').value = n.message_en || '';
-    $('n-ex-np').value = n.message_np || '';
+    $('n-ex-en').value = n.excerpt_en || n.message_en || '';
+    $('n-ex-np').value = n.excerpt_np || n.message_np || '';
+
+    /* Load existing schedule into the preview */
+    currentSchedule = (n.schedule && (
+      (n.schedule.type === 'matrix' && n.schedule.rows && n.schedule.rows.length) ||
+      (Array.isArray(n.schedule) && n.schedule.length)
+    )) ? n.schedule : null;
+    var fileInput = $('n-schedule-file');
+    if (fileInput) fileInput.value = '';
+    updateScheduleStatus();
+
     openNoticeModal();
   }
 
@@ -219,22 +262,20 @@
     var notice = {
       id: id,
       date: $('n-date').value,
-      category: $('n-cat').value,
+      cat: $('n-cat').value,
       title_en: $('n-title-en').value.trim(),
       title_np: $('n-title-np').value.trim(),
-      message_en: $('n-ex-en').value,
-      message_np: $('n-ex-np').value
+      excerpt_en: $('n-ex-en').value,
+      excerpt_np: $('n-ex-np').value
     };
     if (!notice.title_en && !notice.title_np) { alert('Title is required.'); return; }
-    if (NOTICE_CATS.indexOf(notice.category) === -1) { alert('Invalid category.'); return; }
+    if (NOTICE_CATS.indexOf(notice.cat) === -1) { alert('Invalid category.'); return; }
 
-    /* preserve any existing schedule object on edit — we no longer create new ones */
-    for (var i = 0; i < state.notices.length; i++) {
-      if (state.notices[i].id === id && state.notices[i].schedule) {
-        notice.schedule = state.notices[i].schedule;
-        break;
-      }
+    /* Attach schedule if one is present */
+    if (currentSchedule) {
+      notice.schedule = currentSchedule;
     }
+
     commitNotice(notice);
   }
 
@@ -268,6 +309,183 @@
       .catch(function (err) { setStatus($('status'), 'Delete failed: ' + err.message, 'error'); });
   }
 
+  /* ---------- schedule parsing ---------- */
+
+  /* Detect delimiter by inspecting the first line.
+     Returns a string (',' or '\t') or the regex /\s{2,}/. */
+  function detectDelimiter(text) {
+    var firstLine = (text.split(/\r?\n/)[0] || '');
+    if (firstLine.indexOf('\t') !== -1) return '\t';
+    if (firstLine.indexOf(',')  !== -1) return ',';
+    return /\s{2,}/;
+  }
+
+  /* Parse CSV text into a 2-D array. Handles quoted fields when the
+     delimiter is a single character; falls back to regex split for
+     double-space-delimited files. */
+  function parseCSVText(text) {
+    if (!text || !text.trim()) return [];
+    var delim = detectDelimiter(text);
+
+    if (typeof delim !== 'string') {
+      /* Regex split — no quote handling (fine for well-formatted tables) */
+      return text.split(/\r?\n/)
+        .filter(function (l) { return l.trim().length; })
+        .map(function (l) { return l.trim().split(delim).map(function (c) { return c.trim(); }); });
+    }
+
+    var rows = [];
+    var row = [];
+    var cur = '';
+    var inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { cur += '"'; i++; }
+          else inQuotes = false;
+        } else {
+          cur += c;
+        }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === delim) { row.push(cur); cur = ''; }
+        else if (c === '\n') {
+          row.push(cur);
+          if (row.some(function (x) { return x !== ''; })) rows.push(row);
+          row = []; cur = '';
+        }
+        else if (c === '\r') { /* skip */ }
+        else cur += c;
+      }
+    }
+    if (cur !== '' || row.length) {
+      row.push(cur);
+      if (row.some(function (x) { return x !== ''; })) rows.push(row);
+    }
+    return rows;
+  }
+
+  /* Convert a 2-D rows array (header + data rows) into a matrix schedule. */
+  function rowsToSchedule(rows) {
+    if (!rows || rows.length < 2) return null;
+    var header = rows[0].map(function (c) { return String(c == null ? '' : c).trim(); });
+    var dateLabel = header[0] || 'Date';
+
+    /* Strip optional leading "Class " prefix from each column header */
+    var classes = header.slice(1).map(function (c) {
+      var s = c.replace(/^Class\s+/i, '').trim();
+      return s || '—';
+    });
+    if (!classes.length) return null;
+
+    var dataRows = [];
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || !r.length) continue;
+      var date = String(r[0] == null ? '' : r[0]).trim();
+      if (!date) continue;
+      var subjects = [];
+      for (var j = 0; j < classes.length; j++) {
+        var v = String(r[j + 1] == null ? '' : r[j + 1]).trim();
+        subjects.push(v || '—');
+      }
+      dataRows.push({ date: date, subjects: subjects });
+    }
+    if (!dataRows.length) return null;
+
+    return {
+      type: 'matrix',
+      dateLabel: dateLabel,
+      classes: classes,
+      rows: dataRows
+    };
+  }
+
+  /* Lazy-load SheetJS for .xlsx / .xls parsing */
+  function loadSheetJS() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = function () { window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX failed to load')); };
+      s.onerror = function () { reject(new Error('Could not load XLSX parser')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /* File input change handler — reads the file and parses to a schedule. */
+  function handleScheduleFile(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+
+    function fail(msg) { alert('Could not parse file: ' + msg); }
+
+    if (ext === 'csv' || ext === 'txt') {
+      file.text().then(function (text) {
+        var rows = parseCSVText(text);
+        var schedule = rowsToSchedule(rows);
+        if (!schedule) { fail('No data rows found.'); return; }
+        applySchedule(schedule);
+      }).catch(function (err) { fail(err.message); });
+
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      loadSheetJS().then(function (XLSX) {
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          try {
+            var wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+            var sheet = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
+            var schedule = rowsToSchedule(rows);
+            if (!schedule) { fail('No data rows found.'); return; }
+            applySchedule(schedule);
+          } catch (err) { fail(err.message); }
+        };
+        reader.onerror = function () { fail('Could not read file.'); };
+        reader.readAsArrayBuffer(file);
+      }).catch(function (err) { fail(err.message); });
+
+    } else {
+      fail('Unsupported file type. Use .csv, .xlsx or .xls.');
+    }
+  }
+
+  function applySchedule(schedule) {
+    currentSchedule = schedule;
+    updateScheduleStatus();
+  }
+
+  function clearSchedule() {
+    currentSchedule = null;
+    var fileInput = $('n-schedule-file');
+    if (fileInput) fileInput.value = '';
+    updateScheduleStatus();
+  }
+
+  function updateScheduleStatus() {
+    var el = $('n-schedule-status');
+    var clearBtn = $('n-schedule-clear');
+    if (!el) return;
+    if (currentSchedule && currentSchedule.type === 'matrix') {
+      var rowCount = currentSchedule.rows.length;
+      var colCount = currentSchedule.classes.length;
+      el.textContent = '📅 Exam routine attached — ' + rowCount + ' date' +
+                       (rowCount === 1 ? '' : 's') + ' × ' + colCount + ' classes.';
+      el.hidden = false;
+      if (clearBtn) clearBtn.hidden = false;
+    } else if (Array.isArray(currentSchedule) && currentSchedule.length) {
+      el.textContent = '📅 Legacy routine attached — ' + currentSchedule.length + ' rows.';
+      el.hidden = false;
+      if (clearBtn) clearBtn.hidden = false;
+    } else {
+      el.textContent = '';
+      el.hidden = true;
+      if (clearBtn) clearBtn.hidden = true;
+    }
+  }
+
   /* ---------- gallery ---------- */
 
   function renderGallery() {
@@ -280,16 +498,15 @@
     }
     state.gallery.forEach(function (g) {
       var div = document.createElement('div');
-      div.className = 'admin-gallery-item';
+      div.className = 'thumb';
       div.innerHTML =
         '<img src="' + esc(g.src) + '" alt="" onerror="this.style.opacity=0.3">' +
-        '<div class="admin-gallery-meta">' +
-          '<strong>' + esc(g.title_en || g.title_np || 'Untitled') + '</strong>' +
-          '<span>' + esc(g.cat || '') + '</span>' +
-        '</div>' +
-        '<div class="admin-item-actions">' +
-          '<button type="button" class="btn btn-outline edit-photo" data-id="' + esc(g.id) + '">Edit</button>' +
-          '<button type="button" class="btn btn-outline delete-photo" data-id="' + esc(g.id) + '">Delete</button>' +
+        '<div class="cap">' +
+          '<span class="cap-title">' + esc(g.title_en || g.title_np || 'Untitled') + '</span>' +
+          '<span class="cap-actions">' +
+            '<button type="button" class="edit-photo" data-id="' + esc(g.id) + '">Edit</button>' +
+            '<button type="button" class="delete-photo" data-id="' + esc(g.id) + '">Delete</button>' +
+          '</span>' +
         '</div>';
       list.appendChild(div);
     });
@@ -431,6 +648,10 @@
       if ($('add-photo-btn'))  $('add-photo-btn').addEventListener('click', openPhotoModal);
       if ($('notice-cancel'))  $('notice-cancel').addEventListener('click', closeNoticeModal);
       if ($('photo-cancel'))   $('photo-cancel').addEventListener('click', closePhotoModal);
+
+      /* Schedule file input + clear button */
+      if ($('n-schedule-file'))  $('n-schedule-file').addEventListener('change', handleScheduleFile);
+      if ($('n-schedule-clear')) $('n-schedule-clear').addEventListener('click', clearSchedule);
 
       setupTabs();
 

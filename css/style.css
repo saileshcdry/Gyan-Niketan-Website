@@ -562,6 +562,26 @@ p  { margin: 0 0 1em; }
   max-width: 620px;
 }
 
+/* ---------- Compact page hero (shorter vertical footprint) ---------- */
+.page-hero.is-compact {
+  padding: clamp(28px, 3.4vw, 44px) 0 clamp(30px, 3.6vw, 48px);
+}
+.page-hero.is-compact .breadcrumbs {
+  margin-bottom: .55rem;
+}
+.page-hero.is-compact .eyebrow {
+  margin-bottom: .35rem;
+}
+.page-hero.is-compact h1 {
+  font-size: clamp(1.55rem, 3.4vw, 2.15rem);
+  line-height: 1.15;
+  margin-bottom: .5rem;
+}
+.page-hero.is-compact p {
+  font-size: .98rem;
+  max-width: 620px;
+}
+
 .breadcrumbs {
   display: flex;
   gap: 6px;
@@ -668,6 +688,31 @@ p  { margin: 0 0 1em; }
 .welcome-card span { font-size: .78rem; opacity: .8; }
 .welcome-body p { color: var(--gray-700); }
 .welcome-body .link-arrow { margin-top: .5rem; }
+
+/* ---------- VP credentials list ---------- */
+.vp-credentials {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vp-credentials li {
+  display: flex;
+  align-items: flex-start;
+  gap: .6em;
+  font-size: .92rem;
+  color: var(--gray-700);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.vp-credentials .ic {
+  color: var(--gold-600);
+  font-size: 1rem;
+  margin-top: .18em;
+  flex-shrink: 0;
+}
 
 /* =========================================================
    11. NOTICE BOARD
@@ -960,6 +1005,32 @@ p  { margin: 0 0 1em; }
   font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+
+/* ---------- Faculty card qualification / experience ---------- */
+.faculty-info {
+  list-style: none;
+  padding: 0;
+  margin: .9rem 0 0;
+  padding-top: .9rem;
+  border-top: 1px solid var(--gray-100);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.faculty-info li {
+  display: flex;
+  align-items: flex-start;
+  gap: .5em;
+  font-size: .8rem;
+  color: var(--gray-500);
+  line-height: 1.4;
+}
+.faculty-info .ic {
+  color: var(--gold-600);
+  font-size: .95rem;
+  margin-top: .12em;
+  flex-shrink: 0;
 }
 
 .team-photo {
@@ -1527,7 +1598,12 @@ p  { margin: 0 0 1em; }
   line-height: 1.75;
   color: #222;
 }
-.letterhead-body p { margin: 0 0 1em; }
+
+/* Preserve \n and \n\n line breaks inside the message body */
+.letterhead-body p {
+  margin: 0 0 1em;
+  white-space: pre-line;
+}
 .letterhead-body strong { color: #0A2342; }
 
 .letterhead-schedule-wrap {
@@ -1562,6 +1638,42 @@ p  { margin: 0 0 1em; }
   color: #0A2342;
   white-space: nowrap;
 }
+
+/* ---------- Matrix schedule (dates down, classes across) ---------- */
+.letterhead-schedule-matrix {
+  font-size: .74rem;
+  table-layout: auto;
+}
+.letterhead-schedule-matrix thead th,
+.letterhead-schedule-matrix tbody td {
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+  border-right: 1px solid #e5e7eb;
+}
+.letterhead-schedule-matrix thead th:last-child,
+.letterhead-schedule-matrix tbody td:last-child { border-right: 0; }
+
+.letterhead-schedule-matrix thead th {
+  font-size: .68rem;
+  letter-spacing: .03em;
+  padding: 8px 8px;
+}
+
+.letterhead-schedule-matrix th.col-date,
+.letterhead-schedule-matrix td.col-date {
+  text-align: left;
+  background: #eef0f4;
+  color: #0A2342;
+  font-weight: 700;
+  white-space: nowrap;
+  border-right: 2px solid #d1d5db;
+}
+
+.letterhead-schedule-matrix tbody tr:hover td {
+  background: #fff8e1;
+}
+
 .letterhead-note {
   font-size: .82rem;
   color: #555;
@@ -1569,6 +1681,7 @@ p  { margin: 0 0 1em; }
   margin-top: 1rem;
   border-left: 3px solid #F4B400;
   padding-left: 10px;
+  white-space: pre-line;
 }
 
 /* =========================================================
@@ -1578,8 +1691,8 @@ p  { margin: 0 0 1em; }
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  margin-top: 4rem;          /* pushes the signature down toward the footnote */
-  padding-right: 10px;       /* small inset from right edge */
+  margin-top: 4rem;
+  padding-right: 10px;
   font-family: 'Inter', sans-serif;
   font-size: .88rem;
 }
@@ -1707,7 +1820,6 @@ p  { margin: 0 0 1em; }
   .letterhead-head { grid-template-columns: 64px 1fr 64px; gap: 10px; }
   .letterhead-logo { width: 60px; height: 60px; }
   .letterhead-school h1 { font-size: 1.05rem; }
-  /* Keep signature on the right even on mobile, just nudge inset */
   .letterhead-sign { margin-top: 3rem; padding-right: 0; }
 }
 
@@ -1998,6 +2110,15 @@ p  { margin: 0 0 1em; }
   html.gn-printing-notice .letterhead-printable {
     box-shadow: none !important;
     padding: 0 !important;
+  }
+
+  /* Matrix schedule — tighter font so 14 columns fit on one landscape page */
+  html.gn-printing-notice .letterhead-schedule-matrix {
+    font-size: .62rem;
+  }
+  html.gn-printing-notice .letterhead-schedule-matrix thead th,
+  html.gn-printing-notice .letterhead-schedule-matrix tbody td {
+    padding: 4px 5px;
   }
 
   a { color: #000; text-decoration: underline; }

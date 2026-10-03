@@ -132,15 +132,34 @@
 
       <div class="field">
         <label for="n-ex-en">Message (English)</label>
-        <textarea id="n-ex-en" rows="3"></textarea>
+        <textarea id="n-ex-en" rows="4"></textarea>
       </div>
 
       <div class="field">
         <label for="n-ex-np">Message (Nepali)</label>
-        <textarea id="n-ex-np" rows="3"></textarea>
+        <textarea id="n-ex-np" rows="4"></textarea>
       </div>
 
-      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+      <hr style="margin:22px 0 18px; border:0; border-top:1px solid var(--gray-100);">
+
+      <div class="field">
+        <label for="n-schedule-file">Exam Routine — CSV / Excel (optional)</label>
+        <input type="file" id="n-schedule-file" accept=".csv,.xlsx,.xls">
+        <p class="help" style="font-size:.82rem; color:var(--gray-500); margin-top:6px;">
+          Upload a spreadsheet with dates in the first column and one column per class
+          (e.g. <code>Class PG</code>, <code>Class Nursery</code>, … , <code>Class 10</code>).
+          The routine will appear inside the notice letterhead as a formatted table, and the
+          paper will automatically switch to <strong>A4 landscape</strong> when printed.
+        </p>
+      </div>
+
+      <div id="n-schedule-status" class="admin-status ok" hidden></div>
+
+      <button type="button" id="n-schedule-clear" class="btn btn-outline" style="margin-top:6px;" hidden>
+        Remove routine
+      </button>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
         <button type="button" class="btn btn-outline" id="notice-cancel">Cancel</button>
         <button type="submit" class="btn btn-gold">Save &amp; Publish</button>
       </div>

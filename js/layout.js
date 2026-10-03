@@ -79,6 +79,7 @@
   var NAV = [
     { href: 'index.html',      key: 'nav.home',       page: 'home' },
     { href: 'about.html',      key: 'nav.about',      page: 'about' },
+    { href: 'team.html',       key: 'nav.team',       page: 'team' },
     { href: 'academics.html',  key: 'nav.academics',  page: 'academics' },
     { href: 'admissions.html', key: 'nav.admissions', page: 'admissions' },
     { href: 'gallery.html',    key: 'nav.gallery',    page: 'gallery' },
@@ -182,6 +183,7 @@
       +     '<h4 data-i18n="footer.quicklinks">Quick Links</h4>'
       +     '<ul class="footer-links">'
       +       '<li><a href="about.html" data-i18n="nav.about">About Us</a></li>'
+      +       '<li><a href="team.html"  data-i18n="nav.team">Our Team</a></li>'
       +       '<li><a href="academics.html" data-i18n="nav.academics">Academics</a></li>'
       +       '<li><a href="admissions.html" data-i18n="nav.admissions">Admissions</a></li>'
       +       '<li><a href="gallery.html" data-i18n="nav.gallery">Gallery</a></li>'
