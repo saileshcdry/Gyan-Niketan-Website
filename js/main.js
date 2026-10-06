@@ -130,10 +130,21 @@ document.addEventListener('DOMContentLoaded', function () {
     })[cat] || 'General';
   }
 
+  /* Reads the notice body from either admin-saved (`message_*`) or
+     legacy (`excerpt_*`) fields. */
+  function getMessage(n, lang) {
+    if (!n) return '';
+    return n['message_' + lang]
+        || n['excerpt_' + lang]
+        || n.message_en
+        || n.excerpt_en
+        || '';
+  }
+
   /* ---------- Notice card ---------- */
   function noticeCardHTML(n, lang) {
     var title   = n['title_' + lang]   || n.title_en   || '';
-    var excerpt = n['excerpt_' + lang] || n.excerpt_en || '';
+    var excerpt = getMessage(n, lang);
     var readMore = (lang === 'np') ? 'थप हेर्नुहोस्' : 'View notice';
     var hasSchedule = Array.isArray(n.schedule) && n.schedule.length > 0;
     var badge = hasSchedule
@@ -160,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ---------- Letterhead HTML ---------- */
   function letterheadHTML(n, lang) {
     var title   = n['title_' + lang]   || n.title_en   || '';
-    var excerpt = n['excerpt_' + lang] || n.excerpt_en || '';
+    var excerpt = getMessage(n, lang);
     var refNum  = 'GN/' + (n.date || '').replace(/-/g, '/');
     var dateStr = formatDate(n.date, lang);
     var schedule = Array.isArray(n.schedule) ? n.schedule : [];
@@ -202,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function () {
           '<div class="letterhead-school">' +
             '<h1>Gyan Niketan English Secondary School</h1>' +
             '<p>Badan Nagar, Parsa-32, Madhesh Province, Nepal</p>' +
-            '<p>Phone: +977-9800000000 &nbsp;·&nbsp; Email: info@gyanniketan.edu.np</p>' +
+            '<p>Phone: +977-9809135044 &nbsp;·&nbsp; Email: gyanniketan@gmail.com</p>' +
             '<p class="est">Estd. 2003</p>' +
           '</div>' +
           '<div></div>' +
@@ -253,10 +264,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var paperOrientation = 'portrait'; // 'portrait' | 'landscape'
   var detectedSize    = 'A4';        // resolved when mode is 'auto'
 
-  /* Detect paper size by measuring the rendered letterhead.
-     Short notices → A5; larger ones → A4.
-     Threshold is empirical: modal letterhead is ~768px wide,
-     so ≤600px tall fits comfortably on A5. */
   function detectAndSetPaperSize() {
     var letterhead = document.querySelector('#gn-notice-content .letterhead');
     if (!letterhead) return;
@@ -266,7 +273,6 @@ document.addEventListener('DOMContentLoaded', function () {
     updateSizeButton();
   }
 
-  /* Inject the @page rule reflecting current size + orientation. */
   function applyPageSettings() {
     var size = (paperSizeMode === 'auto') ? detectedSize : paperSizeMode;
     var orientation = paperOrientation;
@@ -363,7 +369,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var printLabel = modal.querySelector('#gn-print-label');
     if (printLabel) printLabel.textContent = (currentLang === 'np') ? 'प्रिन्ट' : 'Print';
 
-    /* Reset mode + orientation each time the modal opens */
     paperSizeMode = 'auto';
     paperOrientation = 'portrait';
     var orientBtn = modal.querySelector('#gn-orientation-btn');
@@ -386,12 +391,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var body = modal.querySelector('.gn-modal-content');
     if (body) body.scrollTop = 0;
 
-    /* Detect paper size AFTER fonts are loaded (webfonts affect height) */
     function measure() { detectAndSetPaperSize(); }
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(measure);
     }
-    /* Belt-and-braces — re-measure on next frame too */
     requestAnimationFrame(measure);
   }
 
@@ -500,7 +503,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var list = allNotices.filter(function (n) {
         if (activeFilter !== 'all' && n.cat !== activeFilter) return false;
         if (!q) return true;
-        var blob = [n.title_en, n.title_np, n.excerpt_en, n.excerpt_np].join(' ').toLowerCase();
+        var blob = [
+          n.title_en, n.title_np,
+          n.message_en, n.message_np,
+          n.excerpt_en, n.excerpt_np
+        ].filter(Boolean).join(' ').toLowerCase();
         return blob.indexOf(q) !== -1;
       });
       noticesGrid.innerHTML = list.length

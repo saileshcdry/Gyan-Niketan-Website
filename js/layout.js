@@ -88,7 +88,19 @@
   ];
 
   /* ---------------------------------------------------------
-     3. HEADER HTML
+     3. SCHOOL CONTACT (single source of truth)
+     --------------------------------------------------------- */
+  var CONTACT = {
+    phoneDisplay: '+977-9809135044',
+    phoneHref:    '+9779809135044',
+    email:        'gyanniketan@gmail.com',
+    pan:          '301962254',
+    emis:         '340200137',
+    regd:         '1915-054/055'
+  };
+
+  /* ---------------------------------------------------------
+     4. HEADER HTML
      --------------------------------------------------------- */
   function headerHTML(active) {
     var links = NAV.map(function (n) {
@@ -101,13 +113,13 @@
       /* ---------- Top bar ---------- */
       + '<div class="topbar">'
       +   '<div class="container topbar-inner">'
-      +     '<a href="tel:+9779800000000" class="topbar-item">'
+      +     '<a href="tel:' + CONTACT.phoneHref + '" class="topbar-item">'
       +       '<svg class="ic"><use href="#i-phone"/></svg>'
-      +       '<span>+977-9800000000</span>'
+      +       '<span>' + CONTACT.phoneDisplay + '</span>'
       +     '</a>'
-      +     '<a href="mailto:info@gyanniketan.edu.np" class="topbar-item">'
+      +     '<a href="mailto:' + CONTACT.email + '" class="topbar-item">'
       +       '<svg class="ic"><use href="#i-mail"/></svg>'
-      +       '<span>info@gyanniketan.edu.np</span>'
+      +       '<span>' + CONTACT.email + '</span>'
       +     '</a>'
       +     '<span class="topbar-item topbar-hide">'
       +       '<svg class="ic"><use href="#i-pin"/></svg>'
@@ -156,7 +168,7 @@
   }
 
   /* ---------------------------------------------------------
-     4. FOOTER HTML
+     5. FOOTER HTML
      --------------------------------------------------------- */
   function footerHTML() {
     return ''
@@ -201,11 +213,11 @@
       +       '</li>'
       +       '<li>'
       +         '<svg class="ic"><use href="#i-phone"/></svg>'
-      +         '<a href="tel:+9779800000000">+977-9800000000</a>'
+      +         '<a href="tel:' + CONTACT.phoneHref + '">' + CONTACT.phoneDisplay + '</a>'
       +       '</li>'
       +       '<li>'
       +         '<svg class="ic"><use href="#i-mail"/></svg>'
-      +         '<a href="mailto:info@gyanniketan.edu.np">info@gyanniketan.edu.np</a>'
+      +         '<a href="mailto:' + CONTACT.email + '">' + CONTACT.email + '</a>'
       +       '</li>'
       +       '<li>'
       +         '<svg class="ic"><use href="#i-clock"/></svg>'
@@ -236,14 +248,18 @@
       +       '<a href="contact.html" data-i18n="nav.contact">Contact</a>'
       +     '</p>'
       +   '</div>'
+      +   '<div class="container">'
+      +     '<p class="footer-legal">PAN: ' + CONTACT.pan + ' · EMIS: ' + CONTACT.emis + ' · Regd No: ' + CONTACT.regd + '</p>'
+      +   '</div>'
       + '</div>';
   }
 
   /* ---------------------------------------------------------
-     5. EXPOSE THE API
+     6. EXPOSE THE API
      --------------------------------------------------------- */
   window.GN_LAYOUT = {
     headerHTML: headerHTML,
-    footerHTML: footerHTML
+    footerHTML: footerHTML,
+    CONTACT:    CONTACT
   };
 })();
